@@ -1,4 +1,4 @@
-#Arduino control of an amplifier via wired IR
+# Arduino control of an amplifier via wired IR
 
 This project enables an arduino to control an amplifier's state via wired IR
 based on whether a sonos server is playing or not. It does this by polling a
