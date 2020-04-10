@@ -605,7 +605,7 @@ void SonosUPnP::upnpSet(IPAddress ip, uint8_t upnpMessageType, PGM_P action_P, c
 bool SonosUPnP::upnpPost(IPAddress ip, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *valueA, const char *valueB, PGM_P extraStart_P, PGM_P extraEnd_P, const char *extraValue)
 {
   if (!ethClient.connect(ip, UPNP_PORT)) return false;
-  
+
   // Get UPnP service name
   PGM_P upnpService = getUpnpService(upnpMessageType);
 
@@ -779,7 +779,7 @@ void SonosUPnP::ethClient_stringWithin(const char *begin, size_t beginSize, cons
    int resultIndex = 0;
    char matchBuffer[10] = "";
    matchIndex = 0;
-   
+
    const int replacementSize = 6;
    const char replacements[replacementSize][6] = { "&amp;", "amp;", "apos;", "lt;", "gt;", "quot;" };
    const char replaceWiths[replacementSize] = { '\0', '&', '\'', '<', '>', '"' };
@@ -874,7 +874,7 @@ uint32_t SonosUPnP::getTimeInSeconds(const char *time)
       seconds += (character - '0') * uiPow(10, dPower) * uiPow(60, tPower);
       dPower++;
     }
-  }  
+  }
   return seconds;
 }
 
