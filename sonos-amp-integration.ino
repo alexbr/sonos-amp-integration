@@ -3,7 +3,6 @@
   Alex's sonos and amp controller
 
  *********************************************************/
-//#include "./SonosUPnP.h"
 #include "./Sonos.h"
 #include <Ethernet.h>
 #include <MicroXPath_P.h>
@@ -28,8 +27,14 @@
 #define LCD_SCROLL_PADDING 15
 #define SONOS_STATUS_POLL_DELAY_MS 2000
 #define BUTTON_PRESS_VIEW_DURATION_MS 5000
+#define AMP_DEBOUNCE_DELAY_MS 2000
+#define IR_POWER_DELAY_MS 1500
 
 #define IR_SIZE 67
+
+// Ethernet
+const char ethConnError[] PROGMEM = "Connect error";
+const char ipFormat[] PROGMEM = "%d.%d.%d.%d";
 
 // HTTP Server
 const char httpGet[] PROGMEM = "GET /";
@@ -41,6 +46,9 @@ const char phonoUri[] PROGMEM = "phono";
 const char httpRequest[] PROGMEM = "HTTP/1.1 200 OK\nContent-Type: text/html\nConnection: close\n\nGot URI ";
 
 // LCD
+const char phonoOverride[] PROGMEM = "Phono override";
+const char on[] PROGMEM = "on";
+const char off[] PROGMEM = "off";
 const char playing[] PROGMEM = "Playing";
 const char paused[] PROGMEM = "Paused";
 const char stopped[] PROGMEM = "Stopped";
@@ -51,6 +59,7 @@ const char play[] PROGMEM = "Play";
 const char pause[] PROGMEM = "Pause";
 const char previous[] PROGMEM = "Previous";
 const char next[] PROGMEM = "Next";
+const char ip[] PROGMEM = "IP";
 
 // IR Codes
 const unsigned int pwrCode[IR_SIZE] PROGMEM = { 9000, 4500, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560 };
@@ -63,32 +72,38 @@ const unsigned int phonoCode[IR_SIZE] PROGMEM = { 9000, 4500, 560, 1690, 560, 56
 const byte MAC[] PROGMEM = {0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54};
 
 // Living room sonos
-const IPAddress sonosIP(192, 168, 10, 90);
+const IPAddress livingRoomIP(192, 168, 10, 90);
 // Media room sonos
-//const IPAddress sonosIP(192, 168, 10, 47);
+//const IPAddress mediaRoomIP(192, 168, 10, 47);
+const IPAddress kitchenIP(192, 168, 10, 78);
+const IPAddress sonosIP = livingRoomIP;
 
 EthernetClient sonosClient;
 void ethConnectError(){
-   printStringLn(ETHERNET_ERROR_CONNECT);
+   char error[strlen_P(ethConnError) + 1];
+   strcpy_P(error, ethConnError);
+   printStringLn(error);
 }
 EthernetServer server(80);
 
 Sonos sonos = Sonos(sonosClient, ethConnectError);
 Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
 
-unsigned long sonosLastStateUpdate;
-unsigned long lastButtonPress;
+// Sonos
+unsigned long lastSonosUpdate;
 
 // LCD
+unsigned long displayUntil = 0;
 bool clearLcd = false;
 uint8_t color = VIOLET;
-char row1[LCD_ROW1_LENGTH + 1] = ""; // + 1 for null terminator
+char row1[LCD_ROW1_LENGTH + 1] = ""; // +1 for '\0'
 char row2[LCD_ROW2_LENGTH + 1] = "";
 unsigned long lastScrollTime;
 uint8_t scrollIndex = -1;
 
 // Amp state
 bool ampOn = false;
+bool phonoOn = false;
 unsigned long offRequestTime = 0; // 0 is "not set"
 
 void setup() {
@@ -108,8 +123,7 @@ void setup() {
    }
    server.begin();
    //printStringLn("ethernet initialized");
-   //printString("IP: ");
-   //Serial.println(Ethernet.localIP());
+   //printString("IP: " + Ethernet.localIP().toString());
 
    // set up the LCD's number of columns and rows:
    lcd.begin(16, 2);
@@ -178,37 +192,58 @@ void checkButtons() {
 
    if (buttons) {
       if (buttons & BUTTON_UP) {
-         strcpy(row1, "Play");
+         strcpy_P(row1, play);
          row2[0] = '\0';
          color = VIOLET;
          sonos.play(sonosIP);
       }
       if (buttons & BUTTON_DOWN) {
-         strcpy(row1, "Pause");
+         strcpy_P(row1, pause);
          row2[0] = '\0';
          color = RED;
          sonos.pause(sonosIP);
       }
       if (buttons & BUTTON_LEFT) {
-         strcpy(row1, "Previous");
+         strcpy_P(row1, previous);
          row2[0] = '\0';
          color = YELLOW;
          sonos.skip(sonosIP, 0); // back
       }
       if (buttons & BUTTON_RIGHT) {
-         strcpy(row1, "Next");
+         strcpy_P(row1, next);
          row2[0] = '\0';
          color = TEAL;
          sonos.skip(sonosIP, 1); // forward
       }
       if (buttons & BUTTON_SELECT) {
-         strcpy(row1, "Now playing...");
-         strcpy(row2, "Fuckit");
-         color = BLUE;
+         Serial.println(phonoOn);
+         if (phonoOn) {
+            phonoOn = false;
+            sendIRCode(tunerCode);
+            outputAmpOff();
+            strcpy_P(row1, phonoOverride);
+            strcpy_P(row2, off);
+            color = GREEN;
+         } else {
+            phonoOn = true;
+            outputAmpOn();
+            sendIRCode(phonoCode);
+            strcpy_P(row1, phonoOverride);
+            strcpy_P(row2, on);
+            color = BLUE;
+         }
+         /*
+         strcpy_P(row1, ip);
+         row2[0] = '\0';
+         IPAddress localIP = Ethernet.localIP();
+         char ipOutput[strlen_P(ipFormat) + 1];
+         sprintf(row2, strcpy_P(ipOutput, ipFormat), localIP[0], localIP[1], localIP[2], localIP[3]);
+         */
       }
 
+      delay(500);
       clearLcd = true;
-      lastButtonPress = millis();
+      displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
    }
 }
 
@@ -276,12 +311,14 @@ void checkServer() {
                delay(20);
             }
          } else if (strcmp_P(uri, tunerUri) == 0) {
+            outputAmpOn();
             sendIRCode(tunerCode);
+            phonoOn = false;
          } else if (strcmp_P(uri, phonoUri) == 0) {
+            outputAmpOn();
             sendIRCode(phonoCode);
-         }/* else {
-            printStringLn("ignoring invalid URI");
-         }*/
+            phonoOn = true;
+         }
       }
    }
 
@@ -293,7 +330,7 @@ uint8_t getStepsFromUri(char *uri) {
    char steps[4] = "";
    boolean foundSteps = false;
 
-   for (uint8_t i = 0; i < strlen(uri); i++) {
+   for (uint8_t i = 0; i < strlen(uri) && strlen(steps) < 4; i++) {
       char c = uri[i];
       if (foundSteps == true && isDigit(c)) {
          steps[strlen(steps)] = c;
@@ -313,7 +350,9 @@ uint8_t getStepsFromUri(char *uri) {
 
 void checkSonos() {
    // Sonos state polling
-   if (sonosLastStateUpdate > millis() || millis() > sonosLastStateUpdate + SONOS_STATUS_POLL_DELAY_MS) {
+   if (!phonoOn &&
+         (lastSonosUpdate > millis() ||
+         millis() > lastSonosUpdate + SONOS_STATUS_POLL_DELAY_MS)) {
       byte playerState = sonos.getState(sonosIP);
       char uri[20] = "";
       char title[75] = "";
@@ -331,6 +370,7 @@ void checkSonos() {
             strcpy_P(sonosRow1, playing);
             sonosColor = VIOLET;
             outputAmpOn();
+            sendIRCode(tunerCode);
             break;
          case SONOS_STATE_PAUSED:
             strcpy_P(sonosRow1, paused);
@@ -348,6 +388,14 @@ void checkSonos() {
             break;
       }
 
+      if (source == SONOS_SOURCE_MASTER) {
+         if (sonosIP == livingRoomIP) {
+            sonosIP = kitchenIP;
+         } else {
+            sonosIP = livingRoomIP;
+         }
+      }
+
       if (source != SONOS_SOURCE_LINEIN) {
          strcpy(sonosRow2, title);
          if (strlen(artist) > 0 && LCD_ROW2_LENGTH - strlen(sonosRow2) >= 10) {
@@ -357,12 +405,12 @@ void checkSonos() {
       }
 
       maybePrintSonosUpdate(sonosRow1, sonosRow2, sonosColor);
-      sonosLastStateUpdate = millis();
+      lastSonosUpdate = millis();
    }
 }
 
 void maybePrintSonosUpdate(const char *sonosRow1, const char *sonosRow2, int sonosColor) {
-   if (lastButtonPress > millis() || millis() > lastButtonPress + BUTTON_PRESS_VIEW_DURATION_MS) {
+   if (millis() > displayUntil) {
       strcpy(row1, sonosRow1);
       strcpy(row2, sonosRow2);
       color = sonosColor;
@@ -375,9 +423,9 @@ void outputAmpOn() {
    if (!ampOn) {
       //printStringLn("turning on");
       sendIRCode(pwrCode);
-      delay(2000);
+      delay(IR_POWER_DELAY_MS);
       //printStringLn("setting tuner");
-      sendIRCode(tunerCode);
+      //sendIRCode(tunerCode);
       ampOn = true;
    }
 }
@@ -386,7 +434,8 @@ void outputAmpOff() {
    if (ampOn) {
       // Debounce amp off requests which may occur when sonos switches between
       // play modes
-      if (offRequestTime == 0 || millis() - offRequestTime < 2000) {
+      if (offRequestTime == 0 ||
+            millis() - offRequestTime < AMP_DEBOUNCE_DELAY_MS) {
          offRequestTime = millis();
          return;
       }
