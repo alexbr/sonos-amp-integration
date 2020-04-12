@@ -10,7 +10,7 @@
 #include <Adafruit_RGBLCDShield.h>
 #include <utility/Adafruit_MCP23017.h>
 
-#define PIN_OUT 2 // Serial IR out or 12V op-amp +V(non-intervted) switching
+#define PIN_OUT 2 // Serial IR out or 12V op-amp +V(non-inverted) switching
 #define NEG_PIN_OUT 3 // For 12V op-amp -V(inverted) switching
 
 #define RED 0x1
@@ -28,8 +28,7 @@
 #define SONOS_STATUS_POLL_DELAY_MS 2000
 #define BUTTON_PRESS_VIEW_DURATION_MS 5000
 #define AMP_DEBOUNCE_DELAY_MS 2000
-#define IR_POWER_DELAY_MS 1500
-
+#define IR_POWER_DELAY_MS 1000
 #define IR_SIZE 67
 
 // Ethernet
@@ -421,11 +420,8 @@ void maybePrintSonosUpdate(const char *sonosRow1, const char *sonosRow2, int son
 void outputAmpOn() {
    offRequestTime = 0;
    if (!ampOn) {
-      //printStringLn("turning on");
       sendIRCode(pwrCode);
       delay(IR_POWER_DELAY_MS);
-      //printStringLn("setting tuner");
-      //sendIRCode(tunerCode);
       ampOn = true;
    }
 }
@@ -440,7 +436,6 @@ void outputAmpOff() {
          return;
       }
       offRequestTime = 0;
-      //printStringLn("turning off");
       sendIRCode(pwrCode);
       ampOn = false;
    }
@@ -450,7 +445,6 @@ void sendIRCode(int c) {
    int code[IR_SIZE] = {};
    readWords(code, c, IR_SIZE);
 
-   //printStringLn("sending IR code");
    for (int i = 0; i < IR_SIZE; i++) {
       if (i % 2 == 0) { // Set mark
          digitalWrite(PIN_OUT, HIGH);
