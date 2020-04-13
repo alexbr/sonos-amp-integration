@@ -59,26 +59,25 @@ bool AmpControl::isPhonoOn() {
 
 void AmpControl::turnOn() {
    if (this->useTrigger) {
-      //Serial.println("trigger on");
       digitalWrite(this->triggerPin, HIGH);
       this->source = SRC_MAIN;
    } else if (!this->ampOn) {
-      //Serial.println("IR on");
       sendIRCode(pwrCode);
    }
 
+   this->offAfterMs = 0;
    this->ampOn = true;
 }
 
-void AmpControl::turnOff(bool debounce) {
-   // Debounce amp off requests
-   if (debounce && this->offAfterMs == 0) {
+void AmpControl::turnOff() {
+   // Debounce amp off requests to avoid flapping
+   if (this->offAfterMs == 0) {
       this->offAfterMs = millis() + DEBOUNCE_DELAY_MS;
       return;
    }
+   this->offAfterMs = 0;
 
    if (this->useTrigger) {
-      //Serial.println("trigger off");
       // This is required since the 12V trigger is ignored after source is
       // switched away from main direct.
       this->mainDirect();
@@ -88,13 +87,12 @@ void AmpControl::turnOff(bool debounce) {
       // delay, the amp will ignore it putting it in a wierd state where 12V
       // trigger is on but the amp is off. This plus the whole main direct
       // source requirement is fucking obnoxious.
-      delay(700);
+      // Not really necessary if debounce delay is sufficiently long.
+      // delay(700);
    } else if (this->ampOn) {
-      //Serial.println("IR off");
       this->sendIRCode(pwrCode);
    }
 
-   this->offAfterMs = 0;
    this->ampOn = false;
 }
 
@@ -111,19 +109,16 @@ void AmpControl::volumeDown() {
 }
 
 void AmpControl::mainDirect() {
-   //Serial.println("main");
    this->sendIRCode(mainCode);
    this->source = SRC_MAIN;
 }
 
 void AmpControl::tuner() {
-   //Serial.println("tuner");
    this->sendIRCode(tunerCode);
    this->source = SRC_TUNER;
 }
 
 void AmpControl::phono() {
-   //Serial.println("phono");
    this->sendIRCode(phonoCode);
    this->source = SRC_PHONO;
 }

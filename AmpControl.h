@@ -28,7 +28,7 @@ class AmpControl {
       AmpControl(char irPin, char triggerPin);
 
       void turnOn();
-      void turnOff(bool debounce);
+      void turnOff();
       void volumeUp();
       void volumeDown();
       void mute();
