@@ -86,10 +86,10 @@ uint8_t Sonos::getState(IPAddress speakerIP) {
 }
 
 TrackInfo Sonos::getTrackInfo(
-      IPAddress speakerIP, 
-      char *uriBuffer, 
+      IPAddress speakerIP,
+      char *uriBuffer,
       size_t uriBufferSize,
-      char *title, 
+      char *title,
       size_t titleSize,
       char *artist,
       size_t artistSize) {

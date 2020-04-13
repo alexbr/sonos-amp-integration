@@ -4,14 +4,15 @@
 
  *********************************************************/
 #include "./Sonos.h"
+#include "./AmpControl.h"
 #include <Ethernet.h>
 #include <MicroXPath_P.h>
 #include <Wire.h>
 #include <Adafruit_RGBLCDShield.h>
 #include <utility/Adafruit_MCP23017.h>
 
-#define PIN_OUT 2 // Serial IR out or 12V op-amp +V(non-inverted) switching
-#define NEG_PIN_OUT 3 // For 12V op-amp -V(inverted) switching
+#define IR_PIN_OUT 2 // Serial IR out
+#define TRIGGER_PIN_OUT 3 // For 12V switching
 
 #define RED 0x1
 #define YELLOW 0x3
@@ -25,11 +26,8 @@
 #define LCD_ROW2_LENGTH 100
 #define LCD_SCROLL_DELAY_MS 500
 #define LCD_SCROLL_PADDING 15
-#define SONOS_STATUS_POLL_DELAY_MS 2000
+#define SOURCE_STATUS_POLL_DELAY_MS 2000
 #define BUTTON_PRESS_VIEW_DURATION_MS 5000
-#define AMP_DEBOUNCE_DELAY_MS 2000
-#define IR_POWER_DELAY_MS 1000
-#define IR_SIZE 67
 
 // Ethernet
 const char ethConnError[] PROGMEM = "Connect error";
@@ -45,9 +43,9 @@ const char phonoUri[] PROGMEM = "phono";
 const char httpRequest[] PROGMEM = "HTTP/1.1 200 OK\nContent-Type: text/html\nConnection: close\n\nGot URI ";
 
 // LCD
-const char phonoOverride[] PROGMEM = "Phono override";
-const char on[] PROGMEM = "on";
-const char off[] PROGMEM = "off";
+const char phonoOverride1[] PROGMEM = "Record player";
+const char phonoOn2[] PROGMEM = "on.";
+const char phonoOff2[] PROGMEM = "off.";
 const char playing[] PROGMEM = "Playing";
 const char paused[] PROGMEM = "Paused";
 const char stopped[] PROGMEM = "Stopped";
@@ -60,23 +58,8 @@ const char previous[] PROGMEM = "Previous";
 const char next[] PROGMEM = "Next";
 const char ip[] PROGMEM = "IP";
 
-// IR Codes
-const unsigned int pwrCode[IR_SIZE] PROGMEM = { 9000, 4500, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560 };
-const unsigned int muteCode[IR_SIZE] PROGMEM = { 9000, 4500, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 560, 560 };
-const unsigned int volUpCode[IR_SIZE] PROGMEM = { 9000, 4500, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560 };
-const unsigned int volDownCode[IR_SIZE] PROGMEM = { 9000, 4500, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560 };
-const unsigned int tunerCode[IR_SIZE] PROGMEM = { 9000, 4500, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560 };
-const unsigned int phonoCode[IR_SIZE] PROGMEM = { 9000, 4500, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 560, 560, 560, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560, 1690, 560, 1690, 560, 1690, 560, 560, 560 };
-
-const byte MAC[] PROGMEM = {0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54};
-
-// Living room sonos
-const IPAddress livingRoomIP(192, 168, 10, 90);
-// Media room sonos
-//const IPAddress mediaRoomIP(192, 168, 10, 47);
-const IPAddress kitchenIP(192, 168, 10, 78);
-const IPAddress sonosIP = livingRoomIP;
-
+// Ethernet setup
+const byte MAC[] PROGMEM = { 0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54 };
 EthernetClient sonosClient;
 void ethConnectError(){
    char error[strlen_P(ethConnError) + 1];
@@ -85,31 +68,36 @@ void ethConnectError(){
 }
 EthernetServer server(80);
 
-Sonos sonos = Sonos(sonosClient, ethConnectError);
-Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
+// Amp control
+AmpControl amp = AmpControl(IR_PIN_OUT, TRIGGER_PIN_OUT);
+char intendedSource = SRC_UNKNOWN;
+unsigned long checkSourceAfter = 0;
 
-// Sonos
-unsigned long lastSonosUpdate;
+// Sonos setup
+// Living room sonos
+const IPAddress livingRoomIP(192, 168, 10, 90);
+// Media room sonos
+//const IPAddress mediaRoomIP(192, 168, 10, 47);
+const IPAddress kitchenIP(192, 168, 10, 78);
+const IPAddress sonosIP = livingRoomIP;
+Sonos sonos = Sonos(sonosClient, ethConnectError);
 
 // LCD
+Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
 unsigned long displayUntil = 0;
 bool clearLcd = false;
 uint8_t color = VIOLET;
 char row1[LCD_ROW1_LENGTH + 1] = ""; // +1 for '\0'
 char row2[LCD_ROW2_LENGTH + 1] = "";
-unsigned long lastScrollTime;
+unsigned long nextScrollTime = 0;
 uint8_t scrollIndex = -1;
-
-// Amp state
-bool ampOn = false;
-bool phonoOn = false;
-unsigned long offRequestTime = 0; // 0 is "not set"
 
 void setup() {
    Serial.begin(9600);
    while (!Serial) { ; /* needed for native USB */ }
 
-   pinMode(PIN_OUT, OUTPUT);
+   pinMode(IR_PIN_OUT, OUTPUT);
+   pinMode(TRIGGER_PIN_OUT, OUTPUT);
 
    const byte mac[6] = {};
    readBytes(mac, MAC, 6);
@@ -130,7 +118,7 @@ void setup() {
 
 void loop() {
    checkButtons();
-   checkSonos();
+   checkSource();
    checkServer();
    displayLcd();
 }
@@ -152,12 +140,12 @@ void maybeScrollLcdRow(const char *row) {
    const int rowLen = strlen(row);
 
    if (rowLen > 16) {
-      if (lastScrollTime > millis() || (millis() - lastScrollTime) > LCD_SCROLL_DELAY_MS) {
+      if (millis() > nextScrollTime) {
          scrollIndex++;
          if (scrollIndex >= rowLen + LCD_SCROLL_PADDING) {
             scrollIndex = 0;
          }
-         lastScrollTime = millis();
+         nextScrollTime = millis() + LCD_SCROLL_DELAY_MS;
       }
 
       char toPrint[17];
@@ -215,21 +203,10 @@ void checkButtons() {
          sonos.skip(sonosIP, 1); // forward
       }
       if (buttons & BUTTON_SELECT) {
-         Serial.println(phonoOn);
-         if (phonoOn) {
-            phonoOn = false;
-            sendIRCode(tunerCode);
-            outputAmpOff();
-            strcpy_P(row1, phonoOverride);
-            strcpy_P(row2, off);
-            color = GREEN;
+         if (intendedSource == SRC_PHONO) {
+            phonoOff();
          } else {
-            phonoOn = true;
-            outputAmpOn();
-            sendIRCode(phonoCode);
-            strcpy_P(row1, phonoOverride);
-            strcpy_P(row2, on);
-            color = BLUE;
+            phonoOn();
          }
          /*
          strcpy_P(row1, ip);
@@ -240,10 +217,35 @@ void checkButtons() {
          */
       }
 
-      delay(500);
+      // Debounce button press
+      delay(200);
       clearLcd = true;
       displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
    }
+}
+
+// TODO: rate limit any IR commands
+void tunerOn() {
+   intendedSource = SRC_TUNER;
+   amp.turnOn();
+   amp.tuner();
+}
+
+void phonoOn() {
+   intendedSource = SRC_PHONO;
+   amp.turnOn();
+   amp.phono();
+   strcpy_P(row1, phonoOverride1);
+   strcpy_P(row2, phonoOn2);
+   color = BLUE;
+}
+
+void phonoOff() {
+   intendedSource = SRC_UNKNOWN;
+   amp.turnOff(false);
+   strcpy_P(row1, phonoOverride1);
+   strcpy_P(row2, phonoOff2);
+   color = TEAL;
 }
 
 void checkServer() {
@@ -295,28 +297,25 @@ void checkServer() {
       }
 
       if (strlen(uri) > 0) {
+         //Serial.println(uri);
          if (strcmp_P(uri, muteUri) == 0) {
-            sendIRCode(muteCode);
+            amp.mute();
          } else if (strcmp_P(uri, volupUri) >= 0) {
             const uint8_t volSteps = getStepsFromUri(uri);
             for (uint8_t i = 0; i < volSteps; i++) {
-               sendIRCode(volUpCode);
+               amp.volumeUp();
                delay(20);
             }
          } else if (strcmp_P(uri, voldownUri) >= 0) {
             const uint8_t volSteps = getStepsFromUri(uri);
             for (uint8_t i = 0; i < volSteps; i++) {
-               sendIRCode(volDownCode);
+               amp.volumeDown();
                delay(20);
             }
          } else if (strcmp_P(uri, tunerUri) == 0) {
-            outputAmpOn();
-            sendIRCode(tunerCode);
-            phonoOn = false;
+            tunerOn();
          } else if (strcmp_P(uri, phonoUri) == 0) {
-            outputAmpOn();
-            sendIRCode(phonoCode);
-            phonoOn = true;
+            phonoOn();
          }
       }
    }
@@ -347,11 +346,18 @@ uint8_t getStepsFromUri(char *uri) {
    return volSteps;
 }
 
-void checkSonos() {
-   // Sonos state polling
-   if (!phonoOn &&
-         (lastSonosUpdate > millis() ||
-         millis() > lastSonosUpdate + SONOS_STATUS_POLL_DELAY_MS)) {
+void checkSource() {
+   if (millis() < checkSourceAfter) {
+      return;
+   }
+
+   checkSourceAfter = millis() + SOURCE_STATUS_POLL_DELAY_MS;
+
+   if (intendedSource == SRC_PHONO) {
+      amp.turnOn();
+      amp.phono();
+   } else {
+      // Sonos state polling
       byte playerState = sonos.getState(sonosIP);
       char uri[20] = "";
       char title[75] = "";
@@ -368,18 +374,17 @@ void checkSonos() {
          case SONOS_STATE_PLAYING:
             strcpy_P(sonosRow1, playing);
             sonosColor = VIOLET;
-            outputAmpOn();
-            sendIRCode(tunerCode);
+            tunerOn();
             break;
          case SONOS_STATE_PAUSED:
             strcpy_P(sonosRow1, paused);
             sonosColor = YELLOW;
-            outputAmpOff();
+            amp.turnOff(true);
             break;
          case SONOS_STATE_STOPPED:
             strcpy_P(sonosRow1, stopped);
             sonosColor = RED;
-            outputAmpOff();
+            amp.turnOff(true);
             break;
          default:
             strcpy_P(sonosRow1, unknown);
@@ -404,7 +409,6 @@ void checkSonos() {
       }
 
       maybePrintSonosUpdate(sonosRow1, sonosRow2, sonosColor);
-      lastSonosUpdate = millis();
    }
 }
 
@@ -415,48 +419,6 @@ void maybePrintSonosUpdate(const char *sonosRow1, const char *sonosRow2, int son
       color = sonosColor;
       clearLcd = true;
    }
-}
-
-void outputAmpOn() {
-   offRequestTime = 0;
-   if (!ampOn) {
-      sendIRCode(pwrCode);
-      delay(IR_POWER_DELAY_MS);
-      ampOn = true;
-   }
-}
-
-void outputAmpOff() {
-   if (ampOn) {
-      // Debounce amp off requests which may occur when sonos switches between
-      // play modes
-      if (offRequestTime == 0 ||
-            millis() - offRequestTime < AMP_DEBOUNCE_DELAY_MS) {
-         offRequestTime = millis();
-         return;
-      }
-      offRequestTime = 0;
-      sendIRCode(pwrCode);
-      ampOn = false;
-   }
-}
-
-void sendIRCode(int c) {
-   int code[IR_SIZE] = {};
-   readWords(code, c, IR_SIZE);
-
-   for (int i = 0; i < IR_SIZE; i++) {
-      if (i % 2 == 0) { // Set mark
-         digitalWrite(PIN_OUT, HIGH);
-         delayMicroseconds(code[i]);
-      }
-      else { // set space
-         digitalWrite(PIN_OUT, LOW);
-         delayMicroseconds(code[i]);
-      }
-   }
-
-   digitalWrite(PIN_OUT, LOW);
 }
 
 void readBytes(byte output[], const byte input[], const int size) {
