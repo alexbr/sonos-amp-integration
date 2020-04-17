@@ -40,6 +40,8 @@ const char volupUri[] PROGMEM = "volup";
 const char voldownUri[] PROGMEM = "voldown";
 const char tunerUri[] PROGMEM = "tuner";
 const char phonoUri[] PROGMEM = "phono";
+const char pwrOnUri[] PROGMEM = "pwron";
+const char pwrOffUri[] PROGMEM = "pwroff";
 const char httpRequest[] PROGMEM = "HTTP/1.1 200 OK\nContent-Type: text/html\nConnection: close\n\nGot URI ";
 
 // LCD
@@ -110,7 +112,7 @@ void setup() {
    }
    server.begin();
    //printStringLn("ethernet initialized");
-   //printString("IP: " + Ethernet.localIP().toString());
+   //printString("IP: " + Ethernet.localIP());
 
    // set up the LCD's number of columns and rows:
    lcd.begin(16, 2);
@@ -238,6 +240,7 @@ void phonoOn() {
    strcpy_P(row1, phonoOverride1);
    strcpy_P(row2, phonoOn2);
    color = BLUE;
+   clearLcd = true;
 }
 
 void phonoOff() {
@@ -246,6 +249,7 @@ void phonoOff() {
    strcpy_P(row1, phonoOverride1);
    strcpy_P(row2, phonoOff2);
    color = TEAL;
+   clearLcd = true;
 }
 
 void checkServer() {
@@ -316,6 +320,10 @@ void checkServer() {
             tunerOn();
          } else if (strcmp_P(uri, phonoUri) == 0) {
             phonoOn();
+         } else if (strcmp_P(uri, pwrOnUri) == 0) {
+            amp.turnOn();
+         } else if (strcmp_P(uri, pwrOffUri) == 0) {
+            amp.turnOff();
          }
       }
    }
@@ -363,7 +371,14 @@ void checkSource() {
       char title[75] = "";
       char artist[40] = "";
 
-      TrackInfo track = sonos.getTrackInfo(sonosIP, uri, sizeof(uri), title, sizeof(title), artist, sizeof(artist));
+      TrackInfo track = sonos.getTrackInfo(
+            sonosIP,
+            uri,
+            sizeof(uri),
+            title,
+            sizeof(title),
+            artist,
+            sizeof(artist));
 
       byte source = sonos.getSourceFromURI(track.uri);
       char sonosRow1[LCD_ROW1_LENGTH];
