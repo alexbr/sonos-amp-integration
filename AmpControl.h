@@ -12,6 +12,18 @@
 
 #include <Arduino.h>
 
+/*
+#define CMD_PWR_ON 0
+#define CMD_PWR_OFF 1
+#define CMD_VOL_UP 2
+#define CMD_VOL_DOWN 3
+#define CMD_MUTE 4
+#define CMD_TUNER 5
+#define CMD_PHONO 6
+#define CMD_MAIN 7
+#define CMD_UNKNOWN 255 
+*/
+
 #define SRC_UNKNOWN 0
 #define SRC_TUNER 1
 #define SRC_PHONO 2
@@ -29,6 +41,7 @@ class AmpControl {
 
       void turnOn();
       void turnOff();
+      void turnOffWithDebounce();
       void volumeUp();
       void volumeDown();
       void mute();

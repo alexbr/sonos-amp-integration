@@ -70,13 +70,6 @@ void AmpControl::turnOn() {
 }
 
 void AmpControl::turnOff() {
-   // Debounce amp off requests to avoid flapping
-   if (this->offAfterMs == 0) {
-      this->offAfterMs = millis() + DEBOUNCE_DELAY_MS;
-      return;
-   }
-   this->offAfterMs = 0;
-
    if (this->useTrigger) {
       // This is required since the 12V trigger is ignored after source is
       // switched away from main direct.
@@ -94,6 +87,16 @@ void AmpControl::turnOff() {
    }
 
    this->ampOn = false;
+}
+
+// Debounce amp off requests to avoid flapping
+void AmpControl::turnOffWithDebounce() {
+   if (this->offAfterMs == 0) {
+      this->offAfterMs = millis() + DEBOUNCE_DELAY_MS;
+      return;
+   }
+   this->offAfterMs = 0;
+   this->turnOff();
 }
 
 void AmpControl::mute() {

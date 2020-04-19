@@ -245,7 +245,7 @@ void phonoOn() {
 
 void phonoOff() {
    intendedSource = SRC_UNKNOWN;
-   amp.turnOff();
+   amp.turnOffWithDebounce();
    strcpy_P(row1, phonoOverride1);
    strcpy_P(row2, phonoOff2);
    color = TEAL;
@@ -393,13 +393,13 @@ void checkSource() {
             break;
          case SONOS_STATE_PAUSED:
             strcpy_P(sonosRow1, paused);
-            sonosColor = YELLOW;
-            amp.turnOff();
+            sonosColor = RED;
+            amp.turnOffWithDebounce();
             break;
          case SONOS_STATE_STOPPED:
             strcpy_P(sonosRow1, stopped);
-            sonosColor = RED;
-            amp.turnOff();
+            sonosColor = YELLOW;
+            amp.turnOffWithDebounce();
             break;
          default:
             strcpy_P(sonosRow1, unknown);
