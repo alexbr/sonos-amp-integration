@@ -46,8 +46,8 @@ const char httpRequest[] PROGMEM = "HTTP/1.1 200 OK\nContent-Type: text/html\nCo
 
 // LCD
 const char phonoOverride1[] PROGMEM = "Record player";
-const char phonoOn2[] PROGMEM = "on.";
-const char phonoOff2[] PROGMEM = "off.";
+const char phonoOn2[] PROGMEM = "on";
+const char phonoOff2[] PROGMEM = "off";
 const char playing[] PROGMEM = "Playing";
 const char paused[] PROGMEM = "Paused";
 const char stopped[] PROGMEM = "Stopped";
@@ -119,9 +119,17 @@ void setup() {
 }
 
 void loop() {
-   checkButtons();
-   checkSource();
-   checkServer();
+   // Check inputs in order of precedence, skipping additional checks if any
+   // prior registered input.
+   bool gotInput = checkButtons();
+   if (!gotInput) {
+      gotInput = checkServer();
+   }
+
+   if (!gotInput) {
+      checkSource();
+   }
+
    displayLcd();
 }
 
@@ -176,10 +184,13 @@ void maybeScrollLcdRow(const char *row) {
    }
 }
 
-void checkButtons() {
+bool checkButtons() {
+   bool gotButton = false;
    uint8_t buttons = lcd.readButtons();
 
    if (buttons) {
+      gotButton = true;
+
       if (buttons & BUTTON_UP) {
          strcpy_P(row1, play);
          row2[0] = '\0';
@@ -224,6 +235,8 @@ void checkButtons() {
       clearLcd = true;
       displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
    }
+
+   return gotButton;
 }
 
 // TODO: rate limit any IR commands
@@ -252,7 +265,8 @@ void phonoOff() {
    clearLcd = true;
 }
 
-void checkServer() {
+bool checkServer() {
+   bool gotCmd = false;
    EthernetClient client = server.available();
 
    if (client) {
@@ -323,13 +337,18 @@ void checkServer() {
          } else if (strcmp_P(uri, pwrOnUri) == 0) {
             amp.turnOn();
          } else if (strcmp_P(uri, pwrOffUri) == 0) {
+            intendedSource = SRC_UNKNOWN;
             amp.turnOff();
          }
+
+         gotCmd = true;
       }
    }
 
    delay(1);
    client.stop();
+
+   return gotCmd;
 }
 
 uint8_t getStepsFromUri(char *uri) {
@@ -415,12 +434,14 @@ void checkSource() {
          }
       }
 
-      if (source != SONOS_SOURCE_LINEIN) {
+      if (source != SONOS_SOURCE_LINEIN && playerState != SONOS_STATE_STOPPED) {
          strcpy(sonosRow2, title);
          if (strlen(artist) > 0 && LCD_ROW2_LENGTH - strlen(sonosRow2) >= 10) {
             strcat_P(sonosRow2, by);
             strncat(sonosRow2, artist, min(LCD_ROW2_LENGTH - strlen(sonosRow2), strlen(artist)));
          }
+      } else {
+         sonosRow2[0] = '\0';
       }
 
       maybePrintSonosUpdate(sonosRow1, sonosRow2, sonosColor);
