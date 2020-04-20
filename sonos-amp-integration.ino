@@ -5,6 +5,7 @@
  *********************************************************/
 #include "./Sonos.h"
 #include "./AmpControl.h"
+#include "./LCDHelper.h"
 #include <Ethernet.h>
 #include <MicroXPath_P.h>
 #include <Wire.h>
@@ -14,18 +15,6 @@
 #define IR_PIN_OUT 2 // Serial IR out
 #define TRIGGER_PIN_OUT 3 // For 12V switching
 
-#define RED 0x1
-#define YELLOW 0x3
-#define GREEN 0x2
-#define TEAL 0x6
-#define BLUE 0x4
-#define VIOLET 0x5
-#define WHITE 0x7
-
-#define LCD_ROW1_LENGTH 16
-#define LCD_ROW2_LENGTH 100
-#define LCD_SCROLL_DELAY_MS 500
-#define LCD_SCROLL_PADDING 15
 #define SOURCE_STATUS_POLL_DELAY_MS 2000
 #define BUTTON_PRESS_VIEW_DURATION_MS 5000
 
@@ -86,13 +75,7 @@ Sonos sonos = Sonos(sonosClient, ethConnectError);
 
 // LCD
 Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
-unsigned long displayUntil = 0;
-bool clearLcd = false;
-uint8_t color = VIOLET;
-char row1[LCD_ROW1_LENGTH + 1] = ""; // +1 for '\0'
-char row2[LCD_ROW2_LENGTH + 1] = "";
-unsigned long nextScrollTime = 0;
-uint8_t scrollIndex = -1;
+LCDHelper lcdHelper = LCDHelper(lcd);
 
 void setup() {
    Serial.begin(9600);
@@ -116,6 +99,13 @@ void setup() {
 
    // set up the LCD's number of columns and rows:
    lcd.begin(16, 2);
+
+   // Initialize to sane state
+   lcd.noCursor();
+   lcd.noBlink();
+   lcd.noAutoscroll();
+   lcd.leftToRight();
+   lcd.clear();
 }
 
 void loop() {
@@ -134,54 +124,9 @@ void loop() {
 }
 
 void displayLcd() {
-   if (clearLcd) {
-      lcd.clear();
-      clearLcd = false;
-   }
-
-   lcd.setCursor(0, 0);
-   maybeScrollLcdRow(row1);
-   lcd.setCursor(0, 1);
-   maybeScrollLcdRow(row2);
-   lcd.setBacklight(color);
-}
-
-void maybeScrollLcdRow(const char *row) {
-   const int rowLen = strlen(row);
-
-   if (rowLen > 16) {
-      if (millis() > nextScrollTime) {
-         scrollIndex++;
-         if (scrollIndex >= rowLen + LCD_SCROLL_PADDING) {
-            scrollIndex = 0;
-         }
-         nextScrollTime = millis() + LCD_SCROLL_DELAY_MS;
-      }
-
-      char toPrint[17];
-      for (int i = 0; i < 16; i++) {
-         unsigned int rowIndex = scrollIndex + i;
-         unsigned char c;
-         if (rowIndex >= rowLen) {
-            if (rowIndex < rowLen + LCD_SCROLL_PADDING) {
-               c = ' ';
-            } else {
-               c = row[rowIndex - rowLen - LCD_SCROLL_PADDING];
-            }
-         } else {
-            c = row[rowIndex];
-         }
-         toPrint[i] = c;
-      }
-
-      toPrint[16] = '\0';
-
-      //printStringLn(toPrint);
-
-      lcd.print(toPrint);
-   } else {
-      lcd.print(row);
-   }
+   lcdHelper.maybeScrollRow1();
+   lcdHelper.maybeScrollRow2();
+   lcdHelper.print();
 }
 
 bool checkButtons() {
@@ -190,28 +135,26 @@ bool checkButtons() {
 
    if (buttons) {
       gotButton = true;
+      char row1[10];
+      uint8_t color;
 
       if (buttons & BUTTON_UP) {
          strcpy_P(row1, play);
-         row2[0] = '\0';
          color = VIOLET;
          sonos.play(sonosIP);
       }
       if (buttons & BUTTON_DOWN) {
          strcpy_P(row1, pause);
-         row2[0] = '\0';
          color = RED;
          sonos.pause(sonosIP);
       }
       if (buttons & BUTTON_LEFT) {
          strcpy_P(row1, previous);
-         row2[0] = '\0';
          color = YELLOW;
          sonos.skip(sonosIP, 0); // back
       }
       if (buttons & BUTTON_RIGHT) {
          strcpy_P(row1, next);
-         row2[0] = '\0';
          color = TEAL;
          sonos.skip(sonosIP, 1); // forward
       }
@@ -222,18 +165,18 @@ bool checkButtons() {
             phonoOn();
          }
          /*
-         strcpy_P(row1, ip);
-         row2[0] = '\0';
+         strcpy_P(lcdHelper.row1, ip);
+         lcdHelper.row2[0] = '\0';
          IPAddress localIP = Ethernet.localIP();
          char ipOutput[strlen_P(ipFormat) + 1];
-         sprintf(row2, strcpy_P(ipOutput, ipFormat), localIP[0], localIP[1], localIP[2], localIP[3]);
+         sprintf(lcdHelper.row2, strcpy_P(ipOutput, ipFormat), localIP[0], localIP[1], localIP[2], localIP[3]);
          */
       }
 
-      // Debounce button press
+      // Debounce button press (unnecessary??)
       delay(200);
-      clearLcd = true;
-      displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
+      unsigned long displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
+      lcdHelper.printNext(row1, "", color, displayUntil);
    }
 
    return gotButton;
@@ -250,19 +193,27 @@ void phonoOn() {
    intendedSource = SRC_PHONO;
    amp.turnOn();
    amp.phono();
+   char row1[strlen_P(phonoOverride1) + 1];
+   char row2[strlen_P(phonoOn2) + 1];
+   Serial.println(row1);
    strcpy_P(row1, phonoOverride1);
    strcpy_P(row2, phonoOn2);
-   color = BLUE;
-   clearLcd = true;
+   lcdHelper.printNext(row1, row2, BLUE, 0);
+   /*
+   lcdHelper.color = BLUE;
+   lcdHelper.clearDisplay = true;
+   lcdHelper.displayChanged = true;
+   */
 }
 
 void phonoOff() {
    intendedSource = SRC_UNKNOWN;
    amp.turnOffWithDebounce();
+   char row1[strlen_P(phonoOverride1) + 1];
+   char row2[strlen_P(phonoOff2) + 1];
    strcpy_P(row1, phonoOverride1);
    strcpy_P(row2, phonoOff2);
-   color = TEAL;
-   clearLcd = true;
+   lcdHelper.printNext(row1, row2, TEAL, 0);
 }
 
 bool checkServer() {
@@ -444,16 +395,7 @@ void checkSource() {
          sonosRow2[0] = '\0';
       }
 
-      maybePrintSonosUpdate(sonosRow1, sonosRow2, sonosColor);
-   }
-}
-
-void maybePrintSonosUpdate(const char *sonosRow1, const char *sonosRow2, int sonosColor) {
-   if (millis() > displayUntil) {
-      strcpy(row1, sonosRow1);
-      strcpy(row2, sonosRow2);
-      color = sonosColor;
-      clearLcd = true;
+      lcdHelper.maybePrintNext(sonosRow1, sonosRow2, sonosColor);
    }
 }
 
