@@ -21,14 +21,14 @@
 #define CMD_TUNER 5
 #define CMD_PHONO 6
 #define CMD_MAIN 7
-#define CMD_UNKNOWN 255 
+#define CMD_UNKNOWN 255
 */
 
 #define SRC_UNKNOWN 0
 #define SRC_TUNER 1
 #define SRC_PHONO 2
 #define SRC_MAIN 3
-#define DEBOUNCE_DELAY_MS 2500
+#define DEBOUNCE_DELAY_MS 3000
 #define IR_POWER_ON_DELAY_MS 800
 #define TRIGGER_POWER_ON_DELAY_MS 4000 // to account for the ridiculous amount of time the yamaha takes to switch to main direct
 #define IR_SIZE 67
@@ -40,8 +40,11 @@ class AmpControl {
       AmpControl(char irPin, char triggerPin);
 
       void turnOn();
+      // Turn on avoiding on->off->on transitions
+      void turnOnWithAntiFlap();
       void turnOff();
-      void turnOffWithDebounce();
+      // Turn off avoiding on->off->on transitions
+      void turnOffWithAntiFlap();
       void volumeUp();
       void volumeDown();
       void mute();
@@ -60,6 +63,7 @@ class AmpControl {
       bool ampOn;
       char source;
       unsigned long offAfterMs;
+      unsigned long onAfterMs;
 
       void init(bool useTrigger);
       int readWords(int output[], const int input[], const int size);

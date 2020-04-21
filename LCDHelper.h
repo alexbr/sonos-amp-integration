@@ -12,6 +12,7 @@
 #define WHITE 0x7
 
 #define LCD_ROW_LENGTH 16
+#define LCD_ROW_STR_LENGTH (LCD_ROW_LENGTH + 1)
 #define LCD_ROW1_LENGTH LCD_ROW_LENGTH
 #define LCD_ROW2_LENGTH 100
 #define LCD_SCROLL_DELAY_MS 750
@@ -20,7 +21,7 @@
 class LCDHelper {
 
    public:
-      LCDHelper(Adafruit_RGBLCDShield lcd);
+      LCDHelper(Adafruit_RGBLCDShield *lcd);
 
       void printNext(
             const char *row1,
@@ -31,26 +32,26 @@ class LCDHelper {
             const char *row1,
             const char *row2,
             const int color);
-      void maybeScrollRow1();
-      void maybeScrollRow2();
       void print();
 
+   private:
+      Adafruit_RGBLCDShield *lcd;
+      
       char row1[LCD_ROW1_LENGTH + 1]; // +1 for '\0'
       char row2[LCD_ROW2_LENGTH + 1];
       int color;
       bool clearDisplay;
       bool displayChanged;
-
-   private:
-      Adafruit_RGBLCDShield lcd;
-      char displayRow1[LCD_ROW_LENGTH + 1]; // +1 for '\0'
-      char displayRow2[LCD_ROW_LENGTH + 1];
       unsigned long displayUntil;
       unsigned long nextScrollTime;
       int scrollIndex;
 
-      void maybeScrollRow(const char *row, char result[LCD_ROW_LENGTH + 1]);
-      void LCDHelper::copy16(char *dest, const char *src);
+      void maybeScrollRow(
+            char result[LCD_ROW_STR_LENGTH],
+            const char *row);
+      void copy16(
+            char dest[LCD_ROW_STR_LENGTH],
+            const char *src);
 };
 
 #endif

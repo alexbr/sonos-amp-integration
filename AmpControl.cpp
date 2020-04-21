@@ -43,6 +43,7 @@ void AmpControl::init(bool useTrigger) {
    this->ampOn = false;
    this->source = SRC_UNKNOWN;
    this->offAfterMs = 0; // 0 is "not set"
+   this->onAfterMs = 0; // 0 is "not set"
 }
 
 bool AmpControl::isAmpOn() {
@@ -60,13 +61,26 @@ bool AmpControl::isPhonoOn() {
 void AmpControl::turnOn() {
    if (this->useTrigger) {
       digitalWrite(this->triggerPin, HIGH);
+      // because yamaha...
       this->source = SRC_MAIN;
    } else if (!this->ampOn) {
       sendIRCode(pwrCode);
    }
 
-   this->offAfterMs = 0;
    this->ampOn = true;
+   this->onAfterMs = 0;
+   this->offAfterMs = 0;
+}
+
+// TODO: this anti-flap "detection" is flaky and confusing and doesn't belong
+// here. Replace it with rate limiting in the client.
+void AmpControl::turnOnWithAntiFlap() {
+   // onAfterMs is set by turnOff to prevent flapping back on after turning off
+   if (millis() < this->onAfterMs) {
+      return;
+   }
+
+   this->turnOn();
 }
 
 void AmpControl::turnOff() {
@@ -87,15 +101,22 @@ void AmpControl::turnOff() {
    }
 
    this->ampOn = false;
+   this->offAfterMs = 0;
+   // Prevent flapping back on
+   this->onAfterMs = millis() + DEBOUNCE_DELAY_MS;
 }
 
 // Debounce amp off requests to avoid flapping
-void AmpControl::turnOffWithDebounce() {
+void AmpControl::turnOffWithAntiFlap() {
    if (this->offAfterMs == 0) {
       this->offAfterMs = millis() + DEBOUNCE_DELAY_MS;
       return;
    }
-   this->offAfterMs = 0;
+
+   if (millis() < this->offAfterMs) {
+      return;
+   }
+
    this->turnOff();
 }
 

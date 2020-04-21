@@ -15,7 +15,7 @@
 #define IR_PIN_OUT 2 // Serial IR out
 #define TRIGGER_PIN_OUT 3 // For 12V switching
 
-#define SOURCE_STATUS_POLL_DELAY_MS 2000
+#define SOURCE_STATUS_POLL_DELAY_MS 3000
 #define BUTTON_PRESS_VIEW_DURATION_MS 5000
 
 // Ethernet
@@ -41,6 +41,13 @@ const char playing[] PROGMEM = "Playing";
 const char paused[] PROGMEM = "Paused";
 const char stopped[] PROGMEM = "Stopped";
 const char unknown[] PROGMEM = "Unknown";
+const char powerOn[] PROGMEM = "Power on";
+const char powerOff[] PROGMEM = "Power off";
+const char volumeUp[] PROGMEM = "Volume up";
+const char volumeDown[] PROGMEM = "Volume down";
+const char mute[] PROGMEM = "Mute";
+const char tuner[] PROGMEM = "Tuner";
+const char phono[] PROGMEM = "Phono";
 const char by[] PROGMEM = " by ";
 
 const char play[] PROGMEM = "Play";
@@ -75,7 +82,7 @@ Sonos sonos = Sonos(sonosClient, ethConnectError);
 
 // LCD
 Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
-LCDHelper lcdHelper = LCDHelper(lcd);
+LCDHelper lcdHelper = LCDHelper(&lcd);
 
 void setup() {
    Serial.begin(9600);
@@ -97,15 +104,8 @@ void setup() {
    //printStringLn("ethernet initialized");
    //printString("IP: " + Ethernet.localIP());
 
-   // set up the LCD's number of columns and rows:
+   // set up the LCD's number of columns and rows
    lcd.begin(16, 2);
-
-   // Initialize to sane state
-   lcd.noCursor();
-   lcd.noBlink();
-   lcd.noAutoscroll();
-   lcd.leftToRight();
-   lcd.clear();
 }
 
 void loop() {
@@ -120,12 +120,6 @@ void loop() {
       checkSource();
    }
 
-   displayLcd();
-}
-
-void displayLcd() {
-   lcdHelper.maybeScrollRow1();
-   lcdHelper.maybeScrollRow2();
    lcdHelper.print();
 }
 
@@ -136,79 +130,63 @@ bool checkButtons() {
    if (buttons) {
       gotButton = true;
       char row1[10];
-      uint8_t color;
+      unsigned long displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
 
       if (buttons & BUTTON_UP) {
          strcpy_P(row1, play);
-         color = VIOLET;
+         lcdHelper.printNext(row1, "", VIOLET, displayUntil);
          sonos.play(sonosIP);
       }
       if (buttons & BUTTON_DOWN) {
          strcpy_P(row1, pause);
-         color = RED;
+         lcdHelper.printNext(row1, "", RED, displayUntil);
          sonos.pause(sonosIP);
       }
       if (buttons & BUTTON_LEFT) {
          strcpy_P(row1, previous);
-         color = YELLOW;
+         lcdHelper.printNext(row1, "", YELLOW, displayUntil);
          sonos.skip(sonosIP, 0); // back
       }
       if (buttons & BUTTON_RIGHT) {
          strcpy_P(row1, next);
-         color = TEAL;
+         lcdHelper.printNext(row1, "", TEAL, displayUntil);
          sonos.skip(sonosIP, 1); // forward
       }
       if (buttons & BUTTON_SELECT) {
          if (intendedSource == SRC_PHONO) {
             phonoOff();
+            amp.turnOffWithAntiFlap();
          } else {
+            amp.turnOn();
             phonoOn();
          }
-         /*
-         strcpy_P(lcdHelper.row1, ip);
-         lcdHelper.row2[0] = '\0';
-         IPAddress localIP = Ethernet.localIP();
-         char ipOutput[strlen_P(ipFormat) + 1];
-         sprintf(lcdHelper.row2, strcpy_P(ipOutput, ipFormat), localIP[0], localIP[1], localIP[2], localIP[3]);
-         */
       }
 
-      // Debounce button press (unnecessary??)
+      // Debounce button press (doc claims unnecessary, but testing proves
+      // otherwise)
       delay(200);
-      unsigned long displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
-      lcdHelper.printNext(row1, "", color, displayUntil);
    }
 
    return gotButton;
 }
 
-// TODO: rate limit any IR commands
 void tunerOn() {
    intendedSource = SRC_TUNER;
-   amp.turnOn();
    amp.tuner();
 }
 
 void phonoOn() {
    intendedSource = SRC_PHONO;
-   amp.turnOn();
    amp.phono();
    char row1[strlen_P(phonoOverride1) + 1];
    char row2[strlen_P(phonoOn2) + 1];
-   Serial.println(row1);
    strcpy_P(row1, phonoOverride1);
    strcpy_P(row2, phonoOn2);
    lcdHelper.printNext(row1, row2, BLUE, 0);
-   /*
-   lcdHelper.color = BLUE;
-   lcdHelper.clearDisplay = true;
-   lcdHelper.displayChanged = true;
-   */
 }
 
 void phonoOff() {
    intendedSource = SRC_UNKNOWN;
-   amp.turnOffWithDebounce();
    char row1[strlen_P(phonoOverride1) + 1];
    char row2[strlen_P(phonoOff2) + 1];
    strcpy_P(row1, phonoOverride1);
@@ -266,28 +244,40 @@ bool checkServer() {
       }
 
       if (strlen(uri) > 0) {
-         //Serial.println(uri);
+         char row[LCD_ROW_STR_LENGTH];
+         unsigned long displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
+
          if (strcmp_P(uri, muteUri) == 0) {
+            lcdHelper.printNext(strcpy_P(row, mute), "", GREEN, displayUntil);
             amp.mute();
          } else if (strcmp_P(uri, volupUri) >= 0) {
+            lcdHelper.printNext(strcpy_P(row, volumeUp), "", GREEN, displayUntil);
             const uint8_t volSteps = getStepsFromUri(uri);
             for (uint8_t i = 0; i < volSteps; i++) {
                amp.volumeUp();
                delay(20);
             }
          } else if (strcmp_P(uri, voldownUri) >= 0) {
+            lcdHelper.printNext(
+                  strcpy_P(row, volumeDown), "", GREEN, displayUntil);
             const uint8_t volSteps = getStepsFromUri(uri);
             for (uint8_t i = 0; i < volSteps; i++) {
                amp.volumeDown();
                delay(20);
             }
          } else if (strcmp_P(uri, tunerUri) == 0) {
+            lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN, displayUntil);
+            amp.turnOn();
             tunerOn();
          } else if (strcmp_P(uri, phonoUri) == 0) {
+            lcdHelper.printNext(strcpy_P(row, phono), "", GREEN, displayUntil);
+            amp.turnOn();
             phonoOn();
          } else if (strcmp_P(uri, pwrOnUri) == 0) {
+            lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN, displayUntil);
             amp.turnOn();
          } else if (strcmp_P(uri, pwrOffUri) == 0) {
+            lcdHelper.printNext(strcpy_P(row, powerOff), "", GREEN, displayUntil);
             intendedSource = SRC_UNKNOWN;
             amp.turnOff();
          }
@@ -359,17 +349,18 @@ void checkSource() {
          case SONOS_STATE_PLAYING:
             strcpy_P(sonosRow1, playing);
             sonosColor = VIOLET;
+            amp.turnOnWithAntiFlap();
             tunerOn();
             break;
          case SONOS_STATE_PAUSED:
             strcpy_P(sonosRow1, paused);
             sonosColor = RED;
-            amp.turnOffWithDebounce();
+            amp.turnOffWithAntiFlap();
             break;
          case SONOS_STATE_STOPPED:
             strcpy_P(sonosRow1, stopped);
             sonosColor = YELLOW;
-            amp.turnOffWithDebounce();
+            amp.turnOffWithAntiFlap();
             break;
          default:
             strcpy_P(sonosRow1, unknown);
