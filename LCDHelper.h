@@ -15,7 +15,7 @@
 #define LCD_ROW_STR_LENGTH (LCD_ROW_LENGTH + 1)
 #define LCD_ROW1_LENGTH LCD_ROW_LENGTH
 #define LCD_ROW2_LENGTH 100
-#define LCD_SCROLL_DELAY_MS 750
+#define LCD_SCROLL_DELAY_MS 600
 #define LCD_SCROLL_PADDING 15
 
 class LCDHelper {
@@ -36,7 +36,7 @@ class LCDHelper {
 
    private:
       Adafruit_RGBLCDShield *lcd;
-      
+
       char row1[LCD_ROW1_LENGTH + 1]; // +1 for '\0'
       char row2[LCD_ROW2_LENGTH + 1];
       int color;

@@ -12,8 +12,8 @@
 #include <Adafruit_RGBLCDShield.h>
 #include <utility/Adafruit_MCP23017.h>
 
-#define IR_PIN_OUT 2 // Serial IR out
-#define TRIGGER_PIN_OUT 3 // For 12V switching
+#define TRIGGER_PIN_OUT 2 // For 12V switching
+#define IR_PIN_OUT 3 // Serial IR out
 
 #define SOURCE_STATUS_POLL_DELAY_MS 3000
 #define BUTTON_PRESS_VIEW_DURATION_MS 5000
@@ -72,12 +72,10 @@ char intendedSource = SRC_UNKNOWN;
 unsigned long checkSourceAfter = 0;
 
 // Sonos setup
-// Living room sonos
 const IPAddress livingRoomIP(192, 168, 10, 90);
-// Media room sonos
-//const IPAddress mediaRoomIP(192, 168, 10, 47);
 const IPAddress kitchenIP(192, 168, 10, 78);
-const IPAddress sonosIP = livingRoomIP;
+//const IPAddress mediaRoomIP(192, 168, 10, 47);
+const IPAddress sonosHost = livingRoomIP;
 Sonos sonos = Sonos(sonosClient, ethConnectError);
 
 // LCD
@@ -135,22 +133,22 @@ bool checkButtons() {
       if (buttons & BUTTON_UP) {
          strcpy_P(row1, play);
          lcdHelper.printNext(row1, "", VIOLET, displayUntil);
-         sonos.play(sonosIP);
+         sonos.play(sonosHost);
       }
       if (buttons & BUTTON_DOWN) {
          strcpy_P(row1, pause);
          lcdHelper.printNext(row1, "", RED, displayUntil);
-         sonos.pause(sonosIP);
+         sonos.pause(sonosHost);
       }
       if (buttons & BUTTON_LEFT) {
          strcpy_P(row1, previous);
          lcdHelper.printNext(row1, "", YELLOW, displayUntil);
-         sonos.skip(sonosIP, 0); // back
+         sonos.skip(sonosHost, 0); // back
       }
       if (buttons & BUTTON_RIGHT) {
          strcpy_P(row1, next);
          lcdHelper.printNext(row1, "", TEAL, displayUntil);
-         sonos.skip(sonosIP, 1); // forward
+         sonos.skip(sonosHost, 1); // forward
       }
       if (buttons & BUTTON_SELECT) {
          if (intendedSource == SRC_PHONO) {
@@ -326,13 +324,13 @@ void checkSource() {
       amp.phono();
    } else {
       // Sonos state polling
-      byte playerState = sonos.getState(sonosIP);
+      byte playerState = sonos.getState(sonosHost);
       char uri[20] = "";
       char title[75] = "";
       char artist[40] = "";
 
       TrackInfo track = sonos.getTrackInfo(
-            sonosIP,
+            sonosHost,
             uri,
             sizeof(uri),
             title,
@@ -369,10 +367,10 @@ void checkSource() {
       }
 
       if (source == SONOS_SOURCE_MASTER) {
-         if (sonosIP == livingRoomIP) {
-            sonosIP = kitchenIP;
+         if (sonosHost == livingRoom) {
+            sonosHost = kitchenIP;
          } else {
-            sonosIP = livingRoomIP;
+            sonosHost = livingRoom;
          }
       }
 
