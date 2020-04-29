@@ -7,8 +7,8 @@ Sonos state is polled regularly. If the sonos is playing, an IR power toggle, or
 A webserver also runs on port 80 which accepts the following simple commands:
   * /pwron
   * /pwroff
-  * /volup[/<amount>]
-  * /voldown[/<amount>]
+  * /volup[/\<amount>]
+  * /voldown[/\<amount>]
   * /mute
   * /tuner
   * /phono
