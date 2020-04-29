@@ -3,11 +3,12 @@
   Alex's sonos and amp controller
 
  *********************************************************/
-#include "./Sonos.h"
-#include "./AmpControl.h"
-#include "./LCDHelper.h"
-#include <Ethernet.h>
+
 #include <MicroXPath_P.h>
+#include <Sonos.h>
+#include <AmpControl.h>
+#include <LCDHelper.h>
+#include <Ethernet.h>
 #include <Wire.h>
 #include <Adafruit_RGBLCDShield.h>
 #include <utility/Adafruit_MCP23017.h>
@@ -56,14 +57,28 @@ const char previous[] PROGMEM = "Previous";
 const char next[] PROGMEM = "Next";
 const char ip[] PROGMEM = "IP";
 
-// Ethernet setup
-const byte MAC[] PROGMEM = { 0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54 };
-EthernetClient sonosClient;
-void ethConnectError(){
+void printString(const char *str) {
+   const char *p = str;
+   while (*p) {
+      Serial.print(*p);
+      p++;
+   }
+}
+
+void printStringLn(const char *str) {
+   printString(str);
+   Serial.print('\n');
+}
+
+void connectError(){
    char error[strlen_P(ethConnError) + 1];
    strcpy_P(error, ethConnError);
    printStringLn(error);
 }
+
+// Ethernet setup
+const byte MAC[] PROGMEM = { 0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54 };
+EthernetClient sonosClient;
 EthernetServer server(80);
 
 // Amp control
@@ -75,50 +90,27 @@ unsigned long checkSourceAfter = 0;
 const IPAddress livingRoomIP(192, 168, 10, 90);
 const IPAddress kitchenIP(192, 168, 10, 78);
 //const IPAddress mediaRoomIP(192, 168, 10, 47);
-const IPAddress sonosHost = livingRoomIP;
-Sonos sonos = Sonos(sonosClient, ethConnectError);
+const IPAddress *sonosHost = &livingRoomIP;
+Sonos sonos = Sonos(sonosClient, connectError);
 
 // LCD
 Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
 LCDHelper lcdHelper = LCDHelper(&lcd);
 
-void setup() {
-   Serial.begin(9600);
-   while (!Serial) { ; /* needed for native USB */ }
-
-   pinMode(IR_PIN_OUT, OUTPUT);
-   pinMode(TRIGGER_PIN_OUT, OUTPUT);
-
-   const byte mac[6] = {};
-   readBytes(mac, MAC, 6);
-
-   //printStringLn("connecting ethernet...");
-   if (!Ethernet.begin(mac)) {
-      const IPAddress staticIP(192, 168, 10, 245);
-      //printStringLn("starting with MAC failed...");
-      Ethernet.begin(mac, staticIP);
-   }
-   server.begin();
-   //printStringLn("ethernet initialized");
-   //printString("IP: " + Ethernet.localIP());
-
-   // set up the LCD's number of columns and rows
-   lcd.begin(16, 2);
+void tunerOn() {
+   intendedSource = SRC_TUNER;
+   amp.tuner();
 }
 
-void loop() {
-   // Check inputs in order of precedence, skipping additional checks if any
-   // prior registered input.
-   bool gotInput = checkButtons();
-   if (!gotInput) {
-      gotInput = checkServer();
-   }
+void phonoOn() {
+   intendedSource = SRC_PHONO;
+   amp.phono();
+   lcdHelper.printNextP(phonoOverride1, phonoOn2, BLUE, 0);
+}
 
-   if (!gotInput) {
-      checkSource();
-   }
-
-   lcdHelper.print();
+void phonoOff() {
+   intendedSource = SRC_UNKNOWN;
+   lcdHelper.printNextP(phonoOverride1, phonoOff2, TEAL, 0);
 }
 
 bool checkButtons() {
@@ -133,22 +125,22 @@ bool checkButtons() {
       if (buttons & BUTTON_UP) {
          strcpy_P(row1, play);
          lcdHelper.printNext(row1, "", VIOLET, displayUntil);
-         sonos.play(sonosHost);
+         sonos.play(*sonosHost);
       }
       if (buttons & BUTTON_DOWN) {
          strcpy_P(row1, pause);
          lcdHelper.printNext(row1, "", RED, displayUntil);
-         sonos.pause(sonosHost);
+         sonos.pause(*sonosHost);
       }
       if (buttons & BUTTON_LEFT) {
          strcpy_P(row1, previous);
          lcdHelper.printNext(row1, "", YELLOW, displayUntil);
-         sonos.skip(sonosHost, 0); // back
+         sonos.skip(*sonosHost, 0); // back
       }
       if (buttons & BUTTON_RIGHT) {
          strcpy_P(row1, next);
          lcdHelper.printNext(row1, "", TEAL, displayUntil);
-         sonos.skip(sonosHost, 1); // forward
+         sonos.skip(*sonosHost, 1); // forward
       }
       if (buttons & BUTTON_SELECT) {
          if (intendedSource == SRC_PHONO) {
@@ -168,28 +160,26 @@ bool checkButtons() {
    return gotButton;
 }
 
-void tunerOn() {
-   intendedSource = SRC_TUNER;
-   amp.tuner();
-}
+uint8_t getStepsFromUri(char *uri) {
+   char steps[4] = "";
+   boolean foundSteps = false;
 
-void phonoOn() {
-   intendedSource = SRC_PHONO;
-   amp.phono();
-   char row1[strlen_P(phonoOverride1) + 1];
-   char row2[strlen_P(phonoOn2) + 1];
-   strcpy_P(row1, phonoOverride1);
-   strcpy_P(row2, phonoOn2);
-   lcdHelper.printNext(row1, row2, BLUE, 0);
-}
+   for (uint8_t i = 0; i < strlen(uri) && strlen(steps) < 4; i++) {
+      char c = uri[i];
+      if (foundSteps == true && isDigit(c)) {
+         steps[strlen(steps)] = c;
+         steps[strlen(steps) + 1] = '\0';
+      } else if (c == '/') {
+         foundSteps = true;
+      }
+   }
 
-void phonoOff() {
-   intendedSource = SRC_UNKNOWN;
-   char row1[strlen_P(phonoOverride1) + 1];
-   char row2[strlen_P(phonoOff2) + 1];
-   strcpy_P(row1, phonoOverride1);
-   strcpy_P(row2, phonoOff2);
-   lcdHelper.printNext(row1, row2, TEAL, 0);
+   uint8_t volSteps = 5;
+   if (strlen(steps) > 0) {
+      volSteps = atoi(steps);
+   }
+
+   return volSteps;
 }
 
 bool checkServer() {
@@ -200,7 +190,7 @@ bool checkServer() {
       char get[strlen_P(httpGet) + 1];
       strcpy_P(get, httpGet);
       char uri[16] = "";
-      int index = 0; // used for method and URI indexing
+      unsigned int index = 0; // used for method and URI indexing
 
       boolean collectMethod = true;
       boolean collectUri = true;
@@ -290,28 +280,6 @@ bool checkServer() {
    return gotCmd;
 }
 
-uint8_t getStepsFromUri(char *uri) {
-   char steps[4] = "";
-   boolean foundSteps = false;
-
-   for (uint8_t i = 0; i < strlen(uri) && strlen(steps) < 4; i++) {
-      char c = uri[i];
-      if (foundSteps == true && isDigit(c)) {
-         steps[strlen(steps)] = c;
-         steps[strlen(steps) + 1] = '\0';
-      } else if (c == '/') {
-         foundSteps = true;
-      }
-   }
-
-   uint8_t volSteps = 5;
-   if (strlen(steps) > 0) {
-      volSteps = atoi(steps);
-   }
-
-   return volSteps;
-}
-
 void checkSource() {
    if (millis() < checkSourceAfter) {
       return;
@@ -322,15 +290,16 @@ void checkSource() {
    if (intendedSource == SRC_PHONO) {
       amp.turnOn();
       amp.phono();
+      lcdHelper.maybePrintNextP(phonoOverride1, phonoOn2, BLUE);
    } else {
       // Sonos state polling
-      byte playerState = sonos.getState(sonosHost);
+      byte playerState = sonos.getState(*sonosHost);
       char uri[20] = "";
       char title[75] = "";
       char artist[40] = "";
 
       TrackInfo track = sonos.getTrackInfo(
-            sonosHost,
+            *sonosHost,
             uri,
             sizeof(uri),
             title,
@@ -367,10 +336,10 @@ void checkSource() {
       }
 
       if (source == SONOS_SOURCE_MASTER) {
-         if (sonosHost == livingRoom) {
-            sonosHost = kitchenIP;
+         if (sonosHost == &livingRoomIP) {
+            sonosHost = &kitchenIP;
          } else {
-            sonosHost = livingRoom;
+            sonosHost = &livingRoomIP;
          }
       }
 
@@ -394,24 +363,49 @@ void readBytes(byte output[], const byte input[], const int size) {
    }
 }
 
-int readWords(int output[], const int input[], const int size) {
+void readWords(int output[], const int input[], const int size) {
    for (int i = 0; i < size; i++) {
       output[i] = pgm_read_word_near(input + i);
    }
 }
 
-/**
- * String helpers
- */
-void printStringLn(const char *str) {
-   printString(str);
-   Serial.print('\n');
+
+void setup() {
+   Serial.begin(9600);
+   while (!Serial) { ; /* needed for native USB */ }
+
+   pinMode(IR_PIN_OUT, OUTPUT);
+   pinMode(TRIGGER_PIN_OUT, OUTPUT);
+
+   byte mac[6] = {};
+   readBytes(mac, MAC, 6);
+
+   //printStringLn("connecting ethernet...");
+   if (!Ethernet.begin(mac)) {
+      const IPAddress staticIP(192, 168, 10, 245);
+      //printStringLn("starting with MAC failed...");
+      Ethernet.begin(mac, staticIP);
+   }
+   server.begin();
+   //printStringLn("ethernet initialized");
+   //printString("IP: " + Ethernet.localIP());
+
+   // set up the LCD's number of columns and rows
+   lcd.begin(16, 2);
 }
 
-void printString(const char *str) {
-   const char *p = str;
-   while (*p) {
-      Serial.print(*p);
-      p++;
+void loop() {
+   // Check inputs in order of precedence, skipping additional checks if any
+   // prior registered input.
+   bool gotInput = checkButtons();
+   if (!gotInput) {
+      gotInput = checkServer();
    }
+
+   if (!gotInput) {
+      checkSource();
+   }
+
+   lcdHelper.print();
 }
+

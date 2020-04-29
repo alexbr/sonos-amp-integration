@@ -4,13 +4,11 @@
 
 LCDHelper::LCDHelper(Adafruit_RGBLCDShield *lcd) {
    this->lcd = lcd;
-   row1[LCD_ROW1_LENGTH + 1];
-   row2[LCD_ROW2_LENGTH + 1];
    color = VIOLET;
    clearDisplay = true;
    displayUntil = 0;
    nextScrollTime = 0;
-   scrollIndex = -1;
+   scrollIndex = 0;
 }
 
 void LCDHelper::printNext(
@@ -32,6 +30,18 @@ void LCDHelper::printNext(
    clearDisplay = true;
 }
 
+void LCDHelper::printNextP(
+      const char *row1P,
+      const char *row2P,
+      const int color,
+      const unsigned long displayUntil) {
+   char row1[strlen_P(row1P) + 1];
+   char row2[strlen_P(row2P) + 1];
+   strcpy_P(row1, row1P);
+   strcpy_P(row2, row2P);
+   printNext(row1, row2, color, 0);
+}
+
 void LCDHelper::maybePrintNext(
       const char *row1,
       const char *row2,
@@ -44,10 +54,21 @@ void LCDHelper::maybePrintNext(
    printNext(row1, row2, color, 0);
 }
 
+void LCDHelper::maybePrintNextP(
+      const char *row1P,
+      const char *row2P,
+      const int color) {
+   char row1[strlen_P(row1P) + 1];
+   char row2[strlen_P(row2P) + 1];
+   strcpy_P(row1, row1P);
+   strcpy_P(row2, row2P);
+   maybePrintNext(row1, row2, color);
+}
+
 void LCDHelper::maybeScrollRow(
       char result[LCD_ROW_STR_LENGTH],
       const char *row) {
-   const int rowLen = strlen(row);
+   const unsigned int rowLen = strlen(row);
 
    // No scroll necessary, copy and return
    if (rowLen < LCD_ROW_LENGTH) {

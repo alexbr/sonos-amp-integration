@@ -54,7 +54,7 @@ class AmpControl {
       bool isAmpOn();
       bool isTunerOn();
       bool isPhonoOn();
-      void sendIRCode(int c);
+      void sendIRCode(const unsigned int *c);
 
    private:
       char irPin;
@@ -66,7 +66,7 @@ class AmpControl {
       unsigned long onAfterMs;
 
       void init(bool useTrigger);
-      int readWords(int output[], const int input[], const int size);
+      void readWords(int *output, const unsigned int *input, const int size);
 };
 
 #endif

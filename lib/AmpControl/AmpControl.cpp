@@ -64,7 +64,7 @@ void AmpControl::turnOn() {
       // because yamaha...
       this->source = SRC_MAIN;
    } else if (!this->ampOn) {
-      sendIRCode(pwrCode);
+      this->sendIRCode(pwrCode);
    }
 
    this->ampOn = true;
@@ -147,7 +147,7 @@ void AmpControl::phono() {
    this->source = SRC_PHONO;
 }
 
-void AmpControl::sendIRCode(int c) {
+void AmpControl::sendIRCode(const unsigned int *c) {
    int code[IR_SIZE] = {};
    this->readWords(code, c, IR_SIZE);
 
@@ -165,7 +165,7 @@ void AmpControl::sendIRCode(int c) {
    digitalWrite(this->irPin, LOW);
 }
 
-int AmpControl::readWords(int output[], const int input[], const int size) {
+void AmpControl::readWords(int *output, const unsigned int *input, const int size) {
    for (int i = 0; i < size; i++) {
       output[i] = pgm_read_word_near(input + i);
    }

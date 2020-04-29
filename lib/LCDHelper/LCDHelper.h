@@ -28,9 +28,18 @@ class LCDHelper {
             const char *row2,
             const int color,
             const unsigned long displayUntil);
+      void printNextP(
+            const char *row1P,
+            const char *row2P,
+            const int color,
+            const unsigned long displayUntil);
       void maybePrintNext(
             const char *row1,
             const char *row2,
+            const int color);
+      void maybePrintNextP(
+            const char *row1P,
+            const char *row2P,
             const int color);
       void print();
 
@@ -44,7 +53,7 @@ class LCDHelper {
       bool displayChanged;
       unsigned long displayUntil;
       unsigned long nextScrollTime;
-      int scrollIndex;
+      unsigned int scrollIndex;
 
       void maybeScrollRow(
             char result[LCD_ROW_STR_LENGTH],
