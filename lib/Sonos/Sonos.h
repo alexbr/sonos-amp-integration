@@ -89,8 +89,8 @@
 #define SONOS_SOURCE_MASTER_SCHEME "x-rincon:"
 #define SONOS_SOURCE_QUEUE_SCHEME "x-rincon-queue:"
 #define SONOS_STREAM_CONTENT "&lt;r:streamContent&gt;"
-#define SONOS_TITLE_END "&lt;dc:title&gt;"
-#define SONOS_CREATOR_END "&lt;dc:creator&gt;"
+#define SONOS_TITLE_START "&lt;dc:title&gt;"
+#define SONOS_CREATOR_START "&lt;dc:creator&gt;"
 #define SONOS_R_END "&lt;/r"
 #define SONOS_DC_END "&lt;/dc"
 
@@ -149,25 +149,25 @@ class Sonos {
   public:
     Sonos(EthernetClient client, void (*ethernetErrCallback)(void));
 
-    void play(IPAddress speakerIP);
-    void stop(IPAddress speakerIP);
-    void pause(IPAddress speakerIP);
-    void togglePause(IPAddress speakerIP);
-    void skip(IPAddress speakerIP, uint8_t direction);
-    uint8_t getState(IPAddress speakerIP);
+    void play(IPAddress host);
+    void stop(IPAddress host);
+    void pause(IPAddress host);
+    void togglePause(IPAddress host);
+    void skip(IPAddress host, uint8_t direction);
+    uint8_t getState(IPAddress host);
     uint8_t getSourceFromURI(const char *uri);
 
-    TrackInfo getTrackInfo(IPAddress speakerIP, char *uriBuffer, size_t uriBufferSize, char *titleBuffer, size_t titleBufferSize, char *artist, size_t artistSize);
+    TrackInfo getTrackInfo(IPAddress host, char *uriBuffer, size_t uriBufferSize, char *titleBuffer, size_t titleBufferSize, char *artist, size_t artistSize);
 
   private:
 
     EthernetClient ethClient;
 
     void (*ethernetErrCallback)(void);
-    void upnpSet(IPAddress ip, uint8_t upnpMessageType, PGM_P action_P);
-    void upnpSet(IPAddress ip, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *value);
-    void upnpSet(IPAddress ip, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *valueA, const char *valueB, PGM_P extraStart_P, PGM_P extraEnd_P, const char *extraValue);
-    bool upnpPost(IPAddress ip, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *valueA, const char *valueB, PGM_P extraStart_P, PGM_P extraEnd_P, const char *extraValue);
+    void upnpSet(IPAddress host, uint8_t upnpMessageType, PGM_P action_P);
+    void upnpSet(IPAddress host, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *value);
+    void upnpSet(IPAddress host, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *valueA, const char *valueB, PGM_P extraStart_P, PGM_P extraEnd_P, const char *extraValue);
+    bool upnpPost(IPAddress host, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *valueA, const char *valueB, PGM_P extraStart_P, PGM_P extraEnd_P, const char *extraValue);
     const char *getUpnpService(uint8_t upnpMessageType);
     const char *getUpnpEndpoint(uint8_t upnpMessageType);
     void ethClient_write(const char *data);
@@ -177,7 +177,7 @@ class Sonos {
     MicroXPath_P xPath;
     void ethClient_xPath(PGM_P *path, uint8_t pathSize, char *resultBuffer, size_t resultBufferSize);
     void ethClient_stringWithin(const char *begin, size_t beginSize, const char *end, size_t endSize, char *resultBuffer, size_t resultBufferSize);
-    void upnpGetString(IPAddress speakerIP, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *value, PGM_P *path, uint8_t pathSize, char *resultBuffer, size_t resultBufferSize);
+    void upnpGetString(IPAddress host, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *value, PGM_P *path, uint8_t pathSize, char *resultBuffer, size_t resultBufferSize);
     uint32_t getTimeInSeconds(const char *time);
     uint32_t uiPow(uint16_t base, uint16_t exp);
     uint8_t convertState(const char *input);

@@ -28,6 +28,7 @@
 #define SRC_TUNER 1
 #define SRC_PHONO 2
 #define SRC_MAIN 3
+#define SRC_BAL 4
 #define DEBOUNCE_DELAY_MS 3000
 #define IR_POWER_ON_DELAY_MS 800
 #define TRIGGER_POWER_ON_DELAY_MS 4000 // to account for the ridiculous amount of time the yamaha takes to switch to main direct
@@ -50,9 +51,11 @@ class AmpControl {
       void mute();
       void tuner();
       void phono();
+      void bal();
       void mainDirect();
       bool isAmpOn();
       bool isTunerOn();
+      bool isBalOn();
       bool isPhonoOn();
       void sendIRCode(const unsigned int *c);
 
