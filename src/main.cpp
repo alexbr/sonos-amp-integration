@@ -5,24 +5,24 @@
  *********************************************************/
 
 #include "main.h"
+#include "secrets.h"
+#include <Adafruit_RGBLCDShield.h>
+#include <AmpControl.h>
+#include <Internet.h>
+#include <LCDHelper.h>
 #include <MicroXPath_P.h>
 #include <Sonos.h>
-#include <AmpControl.h>
-#include <LCDHelper.h>
-#include <Ethernet.h>
-#include <Dns.h>
 #include <Wire.h>
-#include <Adafruit_RGBLCDShield.h>
 #include <utility/Adafruit_MCP23017.h>
 
 #define TRIGGER_PIN_OUT 2 // For 12V switching
-#define IR_PIN_OUT 3 // Serial IR out
+#define IR_PIN_OUT 3      // Serial IR out
 
 #define SOURCE_STATUS_POLL_DELAY_MS 3000
 #define BUTTON_PRESS_VIEW_DURATION_MS 5000
 
-// Ethernet
-const char ethConnError[] PROGMEM = "Connect error";
+// Internet
+const char connError[] PROGMEM = "Connect error";
 const char ipFormat[] PROGMEM = "%d.%d.%d.%d";
 
 // HTTP Server
@@ -35,7 +35,8 @@ const char balUri[] PROGMEM = "bal";
 const char phonoUri[] PROGMEM = "phono";
 const char pwrOnUri[] PROGMEM = "pwron";
 const char pwrOffUri[] PROGMEM = "pwroff";
-const char httpRequest[] PROGMEM = "HTTP/1.1 200 OK\nContent-Type: text/html\nConnection: close\n\nGot URI ";
+const char httpRequest[] PROGMEM =
+    "HTTP/1.1 200 OK\nContent-Type: text/html\nConnection: close\n\nGot URI ";
 
 // LCD
 const char phonoOverride1[] PROGMEM = "Record player";
@@ -61,9 +62,9 @@ const char next[] PROGMEM = "Next";
 const char ip[] PROGMEM = "IP";
 
 // Ethernet setup
-const byte MAC[] PROGMEM = { 0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54 };
-EthernetClient sonosClient;
-EthernetServer server(80);
+const byte MAC[] PROGMEM = {0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54};
+InternetClient sonosClient;
+InternetServer server(80);
 
 // Amp control
 AmpControl amp = AmpControl(IR_PIN_OUT, TRIGGER_PIN_OUT);
@@ -73,7 +74,7 @@ unsigned long checkSourceAfter = 0;
 // Sonos setup
 const char livingRoomSonos[] PROGMEM = "sonoslr.rodriguez.lan";
 const char kitchenSonos[] PROGMEM = "sonoskitchen.rodriguez.lan";
-//const char *sonosHost = livingRoomSonos;
+// const char *sonosHost = livingRoomSonos;
 IPAddress sonosIP;
 Sonos sonos = Sonos(sonosClient, connectError);
 
@@ -91,20 +92,25 @@ void setup() {
    byte mac[6] = {};
    readBytes(mac, MAC, 6);
 
-   //printStringLn("connecting ethernet...");
-   if (!Ethernet.begin(mac)) {
+   printStringLn("connecting internet...");
+   if (WiFi.status() != WL_NO_MODULE) {
+      char ssid[] = SECRET_SSID;
+      char passkey[] = SECRET_PASSKEY;
+      Internet.begin(ssid, passkey);
+   } else if (!Internet.begin(mac)) {
       const IPAddress staticIP(192, 168, 10, 245);
-      //printStringLn("starting with MAC failed...");
-      Ethernet.begin(mac, staticIP);
+      // printStringLn("starting with MAC failed...");
+      Internet.begin(mac, staticIP);
    }
-   
-   getSonosIP(sonosIP, livingRoomSonos);
-   
-   server.begin();
-   //printStringLn("ethernet initialized");
-   //printString("IP: " + Ethernet.localIP());
 
-   // set up the LCD's number of columns and rows
+   getSonosIP(sonosIP, livingRoomSonos);
+
+   server.begin();
+   
+   printString("internet initialized: ");
+   Serial.println(Internet.localIP());
+
+   // Set up the LCD's columns and rows
    lcd.begin(16, 2);
 }
 
@@ -172,7 +178,7 @@ bool checkButtons() {
 
 bool checkServer() {
    bool gotCmd = false;
-   EthernetClient client = server.available();
+   InternetClient client = server.available();
 
    if (client) {
       char get[strlen_P(httpGet) + 1];
@@ -227,26 +233,29 @@ bool checkServer() {
             lcdHelper.printNext(strcpy_P(row, mute), "", GREEN, displayUntil);
             amp.mute();
          } else if (strcmp_P(uri, volupUri) >= 0) {
-            lcdHelper.printNext(strcpy_P(row, volumeUp), "", GREEN, displayUntil);
+            lcdHelper.printNext(strcpy_P(row, volumeUp), "", GREEN,
+                                displayUntil);
             const uint8_t volSteps = getStepsFromUri(uri);
             for (uint8_t i = 0; i < volSteps; i++) {
                amp.volumeUp();
                delay(20);
             }
          } else if (strcmp_P(uri, voldownUri) >= 0) {
-            lcdHelper.printNext(
-                  strcpy_P(row, volumeDown), "", GREEN, displayUntil);
+            lcdHelper.printNext(strcpy_P(row, volumeDown), "", GREEN,
+                                displayUntil);
             const uint8_t volSteps = getStepsFromUri(uri);
             for (uint8_t i = 0; i < volSteps; i++) {
                amp.volumeDown();
                delay(20);
             }
          } else if (strcmp_P(uri, balUri) == 0) {
-            lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN, displayUntil);
+            lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN,
+                                displayUntil);
             amp.turnOn();
             balOn();
          } else if (strcmp_P(uri, tunerUri) == 0) {
-            lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN, displayUntil);
+            lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN,
+                                displayUntil);
             amp.turnOn();
             tunerOn();
          } else if (strcmp_P(uri, phonoUri) == 0) {
@@ -254,10 +263,12 @@ bool checkServer() {
             amp.turnOn();
             phonoOn();
          } else if (strcmp_P(uri, pwrOnUri) == 0) {
-            lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN, displayUntil);
+            lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN,
+                                displayUntil);
             amp.turnOn();
          } else if (strcmp_P(uri, pwrOffUri) == 0) {
-            lcdHelper.printNext(strcpy_P(row, powerOff), "", GREEN, displayUntil);
+            lcdHelper.printNext(strcpy_P(row, powerOff), "", GREEN,
+                                displayUntil);
             intendedSource = SRC_UNKNOWN;
             amp.turnOff();
          }
@@ -290,22 +301,16 @@ void checkSource() {
       char title[75] = "";
       char artist[40] = "";
 
-      TrackInfo track = sonos.getTrackInfo(
-            sonosIP,
-            uri,
-            sizeof(uri),
-            title,
-            sizeof(title),
-            artist,
-            sizeof(artist));
+      TrackInfo track =
+          sonos.getTrackInfo(sonosIP, uri, sizeof(uri), title, sizeof(title),
+                             artist, sizeof(artist));
 
       byte source = sonos.getSourceFromURI(track.uri);
       char sonosRow1[LCD_ROW1_LENGTH];
       char sonosRow2[LCD_ROW2_LENGTH];
       int sonosColor;
 
-      switch (playerState)
-      {
+      switch (playerState) {
       case SONOS_STATE_PLAYING:
          strcpy_P(sonosRow1, playing);
          sonosColor = VIOLET;
@@ -342,7 +347,8 @@ void checkSource() {
          strcpy(sonosRow2, title);
          if (strlen(artist) > 0 && LCD_ROW2_LENGTH - strlen(sonosRow2) >= 10) {
             strcat_P(sonosRow2, by);
-            strncat(sonosRow2, artist, min(LCD_ROW2_LENGTH - strlen(sonosRow2), strlen(artist)));
+            strncat(sonosRow2, artist,
+                    min(LCD_ROW2_LENGTH - strlen(sonosRow2), strlen(artist)));
          }
       } else {
          sonosRow2[0] = '\0';
@@ -423,15 +429,11 @@ void printStringLn(const char *str) {
 void getSonosIP(IPAddress &ip, const char *hostP) {
    char sonosHost[strlen_P(hostP) + 1];
    strcpy_P(sonosHost, hostP);
-   
-	DNSClient dns;
-
-	dns.begin(Ethernet.dnsServerIP());
-   dns.getHostByName(sonosHost, ip);
+   Internet.hostByName(ip, sonosHost);
 }
 
 void connectError() {
-   char error[strlen_P(ethConnError) + 1];
-   strcpy_P(error, ethConnError);
+   char error[strlen_P(connError) + 1];
+   strcpy_P(error, connError);
    printStringLn(error);
 }

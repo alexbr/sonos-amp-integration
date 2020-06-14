@@ -52,9 +52,9 @@ const char p_GetTransportInfoA[] PROGMEM = SONOS_TAG_GET_TRANSPORT_INFO;
 const char p_GetTransportInfoR[] PROGMEM = SONOS_TAG_GET_TRANSPORT_INFO_RESPONSE;
 const char p_CurrentTransportState[] PROGMEM = SONOS_TAG_CURRENT_TRANSPORT_STATE;
 
-Sonos::Sonos(EthernetClient client, void (*ethernetErrCallback)(void)) {
-  this->ethClient = client;
-  this->ethernetErrCallback = ethernetErrCallback;
+Sonos::Sonos(InternetClient client, void (*internetErrCallback)(void)) {
+  this->client = client;
+  this->internetErrCallback = internetErrCallback;
 }
 
 void Sonos::play(IPAddress host) {
@@ -105,28 +105,28 @@ TrackInfo Sonos::getTrackInfo(
 
     // Track duration
     PGM_P dpath[] = { soapEnvelopeP, soapBodyP, p_GetPositionInfoR, p_TrackDuration };
-    ethClient_xPath(dpath, 4, infoBuffer, sizeof(infoBuffer));
+    client_xPath(dpath, 4, infoBuffer, sizeof(infoBuffer));
     trackInfo.duration = getTimeInSeconds(infoBuffer);
 
     // Content (preferred)
-    ethClient_stringWithin(streamContentStartP, 23, rEndP, 6, title, titleSize);
+    client_stringWithin(streamContentStartP, 23, rEndP, 6, title, titleSize);
     if (strlen(title) == 0) {
        // Title
-       ethClient_stringWithin(titleStartP, 16, dcEndP, 7, title, titleSize);
+       client_stringWithin(titleStartP, 16, dcEndP, 7, title, titleSize);
        // Artist
-       ethClient_stringWithin(creatorStartP, 18, dcEndP, 7, artist, artistSize);
+       client_stringWithin(creatorStartP, 18, dcEndP, 7, artist, artistSize);
     }
     // Track URI
     PGM_P upath[] = { soapEnvelopeP, soapBodyP, p_GetPositionInfoR, p_TrackURI };
-    ethClient_xPath(upath, 4, uriBuffer, uriBufferSize);
+    client_xPath(upath, 4, uriBuffer, uriBufferSize);
     trackInfo.uri = uriBuffer;
 
     // Track position
     PGM_P ppath[] = { soapEnvelopeP, soapBodyP, p_GetPositionInfoR, p_RelTime };
-    ethClient_xPath(ppath, 4, infoBuffer, sizeof(infoBuffer));
+    client_xPath(ppath, 4, infoBuffer, sizeof(infoBuffer));
     trackInfo.position = getTimeInSeconds(infoBuffer);
   }
-  ethClient_stop();
+  client_stop();
   return trackInfo;
 }
 
@@ -162,7 +162,7 @@ void Sonos::upnpSet(IPAddress host, uint8_t upnpMessageType, PGM_P action_P, con
 
 void Sonos::upnpSet(IPAddress host, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *valueA, const char *valueB, PGM_P extraStart_P, PGM_P extraEnd_P, const char *extraValue) {
   upnpPost(host, upnpMessageType, action_P, field, valueA, valueB, extraStart_P, extraEnd_P, extraValue);
-  ethClient_stop();
+  client_stop();
 }
 
 bool Sonos::upnpPost(
@@ -176,8 +176,8 @@ bool Sonos::upnpPost(
       PGM_P extraEnd_P,
       const char *extraValue) {
 
-  if (!ethClient.connect(host, UPNP_PORT)) {
-     return false;
+  if (!client.connect(host, UPNP_PORT)) {
+    return false;
   }
 
   // Get UPnP service name
@@ -216,58 +216,58 @@ bool Sonos::upnpPost(
   char buffer[50];
 
   // Write HTTP start
-  ethClient_write("POST ");
-  ethClient_write_P(getUpnpEndpoint(upnpMessageType), buffer, sizeof(buffer));
-  ethClient_write_P(httpVersionP, buffer, sizeof(buffer));
+  client_write("POST ");
+  client_write_P(getUpnpEndpoint(upnpMessageType), buffer, sizeof(buffer));
+  client_write_P(httpVersionP, buffer, sizeof(buffer));
 
   // Write HTTP header
   sprintf_P(buffer, headerHostP, host[0], host[1], host[2], host[3], UPNP_PORT); // 29 bytes max
-  ethClient_write(buffer);
-  ethClient_write_P(headerContentTypeP, buffer, sizeof(buffer));
+  client_write(buffer);
+  client_write_P(headerContentTypeP, buffer, sizeof(buffer));
   sprintf_P(buffer, headerContentLengthP, contentLength); // 23 bytes max
-  ethClient_write(buffer);
-  ethClient_write_P(headerSoapActionP, buffer, sizeof(buffer));
-  ethClient_write_P(p_UpnpUrnSchema, buffer, sizeof(buffer));
-  ethClient_write_P(upnpService, buffer, sizeof(buffer));
-  ethClient_write("#");
-  ethClient_write_P(action_P, buffer, sizeof(buffer));
-  ethClient_write(HEADER_SOAP_ACTION_END);
-  ethClient_write_P(headerConnectionP, buffer, sizeof(buffer));
-  ethClient_write("\n");
+  client_write(buffer);
+  client_write_P(headerSoapActionP, buffer, sizeof(buffer));
+  client_write_P(p_UpnpUrnSchema, buffer, sizeof(buffer));
+  client_write_P(upnpService, buffer, sizeof(buffer));
+  client_write("#");
+  client_write_P(action_P, buffer, sizeof(buffer));
+  client_write(HEADER_SOAP_ACTION_END);
+  client_write_P(headerConnectionP, buffer, sizeof(buffer));
+  client_write("\n");
 
   // Write HTTP body
-  ethClient_write_P(soapEnvelopeStartP, buffer, sizeof(buffer));
-  ethClient_write_P(soapBodyStartP, buffer, sizeof(buffer));
-  ethClient_write(SOAP_ACTION_START_TAG_START);
-  ethClient_write_P(action_P, buffer, sizeof(buffer));
-  ethClient_write(SOAP_ACTION_START_TAG_NS);
-  ethClient_write_P(p_UpnpUrnSchema, buffer, sizeof(buffer));
-  ethClient_write_P(upnpService, buffer, sizeof(buffer));
-  ethClient_write(SOAP_ACTION_START_TAG_END);
-  ethClient_write_P(p_InstenceId0Tag, buffer, sizeof(buffer));
+  client_write_P(soapEnvelopeStartP, buffer, sizeof(buffer));
+  client_write_P(soapBodyStartP, buffer, sizeof(buffer));
+  client_write(SOAP_ACTION_START_TAG_START);
+  client_write_P(action_P, buffer, sizeof(buffer));
+  client_write(SOAP_ACTION_START_TAG_NS);
+  client_write_P(p_UpnpUrnSchema, buffer, sizeof(buffer));
+  client_write_P(upnpService, buffer, sizeof(buffer));
+  client_write(SOAP_ACTION_START_TAG_END);
+  client_write_P(p_InstenceId0Tag, buffer, sizeof(buffer));
   if (fieldLength) {
     sprintf(buffer, SOAP_TAG_START, field); // 18 bytes
-    ethClient_write(buffer);
-    ethClient_write(valueA);
-    ethClient_write(valueB);
+    client_write(buffer);
+    client_write(valueA);
+    client_write(valueB);
     sprintf(buffer, SOAP_TAG_END, field); // 19 bytes
-    ethClient_write(buffer);
+    client_write(buffer);
   }
   if (extraStart_P) {
-    ethClient_write_P(extraStart_P, buffer, sizeof(buffer)); // 390 bytes
-    ethClient_write(extraValue);
-    ethClient_write_P(extraEnd_P, buffer, sizeof(buffer)); // 271 bytes
+    client_write_P(extraStart_P, buffer, sizeof(buffer)); // 390 bytes
+    client_write(extraValue);
+    client_write_P(extraEnd_P, buffer, sizeof(buffer)); // 271 bytes
   }
-  ethClient_write(SOAP_ACTION_END_TAG_START);
-  ethClient_write_P(action_P, buffer, sizeof(buffer)); // 35 bytes
-  ethClient_write(SOAP_ACTION_END_TAG_END);
-  ethClient_write_P(soapBodyEndP, buffer, sizeof(buffer)); // 10 bytes
-  ethClient_write_P(soapEnvelopeEndP, buffer, sizeof(buffer)); // 14 bytes
+  client_write(SOAP_ACTION_END_TAG_START);
+  client_write_P(action_P, buffer, sizeof(buffer)); // 35 bytes
+  client_write(SOAP_ACTION_END_TAG_END);
+  client_write_P(soapBodyEndP, buffer, sizeof(buffer)); // 10 bytes
+  client_write_P(soapEnvelopeEndP, buffer, sizeof(buffer)); // 14 bytes
 
   uint32_t start = millis();
-  while (!ethClient.available()) {
+  while (!client.available()) {
     if (millis() > (start + UPNP_RESPONSE_TIMEOUT_MS)) {
-      if (ethernetErrCallback) ethernetErrCallback();
+      if (internetErrCallback) internetErrCallback();
       return false;
     }
   }
@@ -294,36 +294,36 @@ PGM_P Sonos::getUpnpEndpoint(uint8_t upnpMessageType) {
   }
 }
 
-void Sonos::ethClient_write(const char *data) {
-  ethClient.print(data);
+void Sonos::client_write(const char *data) {
+  client.print(data);
 }
 
-void Sonos::ethClient_write_P(PGM_P data_P, char *buffer, size_t bufferSize) {
+void Sonos::client_write_P(PGM_P data_P, char *buffer, size_t bufferSize) {
   uint16_t dataLen = strlen_P(data_P);
   uint16_t dataPos = 0;
   while (dataLen > dataPos) {
     strlcpy_P(buffer, data_P + dataPos, bufferSize);
-    ethClient.print(buffer);
+    client.print(buffer);
     dataPos += bufferSize - 1;
   }
 }
 
-void Sonos::ethClient_stop() {
-  if (ethClient) {
-    while (ethClient.available()) ethClient.read();
-    ethClient.stop();
+void Sonos::client_stop() {
+  if (client) {
+    while (client.available()) client.read();
+    client.stop();
   }
 }
 
-void Sonos::ethClient_stringWithin(const char *beginP, size_t beginSize, const char *endP, size_t endSize, char *resultBuffer, size_t resultBufferSize) {
+void Sonos::client_stringWithin(const char *beginP, size_t beginSize, const char *endP, size_t endSize, char *resultBuffer, size_t resultBufferSize) {
    uint8_t matchIndex = 0;
    char begin[strlen_P(beginP) + 1];
    char end[strlen_P(endP) + 1];
    strcpy_P(begin, beginP);
    strcpy_P(end, endP);
 
-   while (ethClient.available()) {
-      char c = ethClient.read();
+   while (client.available()) {
+      char c = client.read();
       if (c == begin[matchIndex]) {
          matchIndex++;
          if (matchIndex == beginSize) {
@@ -334,7 +334,7 @@ void Sonos::ethClient_stringWithin(const char *beginP, size_t beginSize, const c
       }
    }
 
-   if (!ethClient.available()) {
+   if (!client.available()) {
       return;
    }
 
@@ -358,8 +358,8 @@ void Sonos::ethClient_stringWithin(const char *beginP, size_t beginSize, const c
        '>',
        '"'};
 
-   while (ethClient.available() && resultIndex < resultBufferSize) {
-      char c = ethClient.read();
+   while (client.available() && resultIndex < resultBufferSize) {
+      char c = client.read();
 
       if (c == end[matchIndex]) {
          matchBuffer[matchIndex] = c;
@@ -412,17 +412,17 @@ void Sonos::ethClient_stringWithin(const char *beginP, size_t beginSize, const c
    resultBuffer[resultIndex] = '\0';
 }
 
-void Sonos::ethClient_xPath(PGM_P *path, uint8_t pathSize, char *resultBuffer, size_t resultBufferSize) {
+void Sonos::client_xPath(PGM_P *path, uint8_t pathSize, char *resultBuffer, size_t resultBufferSize) {
   xPath.setPath(path, pathSize);
-  while (ethClient.available() && !xPath.getValue(ethClient.read(), resultBuffer, resultBufferSize));
+  while (client.available() && !xPath.getValue(client.read(), resultBuffer, resultBufferSize));
 }
 
 void Sonos::upnpGetString(IPAddress host, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *value, PGM_P *path, uint8_t pathSize, char *resultBuffer, size_t resultBufferSize) {
   if (upnpPost(host, upnpMessageType, action_P, field, value, "", 0, 0, "")) {
     xPath.reset();
-    ethClient_xPath(path, pathSize, resultBuffer, resultBufferSize);
+    client_xPath(path, pathSize, resultBuffer, resultBufferSize);
   }
-  ethClient_stop();
+  client_stop();
 }
 
 uint32_t Sonos::getTimeInSeconds(const char *time) {

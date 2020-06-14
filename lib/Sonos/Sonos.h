@@ -4,7 +4,7 @@
 
 #include <Arduino.h>
 #include <MicroXPath_P.h>
-#include <Ethernet.h>
+#include <Internet.h>
 
 // UPnP config
 #define UPNP_PORT 1400
@@ -147,7 +147,7 @@ struct TrackInfo {
 class Sonos {
 
   public:
-    Sonos(EthernetClient client, void (*ethernetErrCallback)(void));
+    Sonos(InternetClient client, void (*internetErrCallback)(void));
 
     void play(IPAddress host);
     void stop(IPAddress host);
@@ -161,22 +161,22 @@ class Sonos {
 
   private:
 
-    EthernetClient ethClient;
+    InternetClient client;
 
-    void (*ethernetErrCallback)(void);
+    void (*internetErrCallback)(void);
     void upnpSet(IPAddress host, uint8_t upnpMessageType, PGM_P action_P);
     void upnpSet(IPAddress host, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *value);
     void upnpSet(IPAddress host, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *valueA, const char *valueB, PGM_P extraStart_P, PGM_P extraEnd_P, const char *extraValue);
     bool upnpPost(IPAddress host, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *valueA, const char *valueB, PGM_P extraStart_P, PGM_P extraEnd_P, const char *extraValue);
     const char *getUpnpService(uint8_t upnpMessageType);
     const char *getUpnpEndpoint(uint8_t upnpMessageType);
-    void ethClient_write(const char *data);
-    void ethClient_write_P(PGM_P data_P, char *buffer, size_t bufferSize);
-    void ethClient_stop();
+    void client_write(const char *data);
+    void client_write_P(PGM_P data_P, char *buffer, size_t bufferSize);
+    void client_stop();
 
     MicroXPath_P xPath;
-    void ethClient_xPath(PGM_P *path, uint8_t pathSize, char *resultBuffer, size_t resultBufferSize);
-    void ethClient_stringWithin(const char *begin, size_t beginSize, const char *end, size_t endSize, char *resultBuffer, size_t resultBufferSize);
+    void client_xPath(PGM_P *path, uint8_t pathSize, char *resultBuffer, size_t resultBufferSize);
+    void client_stringWithin(const char *begin, size_t beginSize, const char *end, size_t endSize, char *resultBuffer, size_t resultBufferSize);
     void upnpGetString(IPAddress host, uint8_t upnpMessageType, PGM_P action_P, const char *field, const char *value, PGM_P *path, uint8_t pathSize, char *resultBuffer, size_t resultBufferSize);
     uint32_t getTimeInSeconds(const char *time);
     uint32_t uiPow(uint16_t base, uint16_t exp);
