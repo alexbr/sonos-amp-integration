@@ -9,33 +9,39 @@ static void InternetClass::begin(char *ssid, char *pass) {
 
 static void InternetClass::begin(char *ssid, char *pass, IPAddress ip) {
    if (WiFi.status() == WL_NO_MODULE) {
-      Serial.println("WiFi module failed!");
+      //Serial.println("WiFi module failed!");
       return;
    }
 
    String fv = WiFi.firmwareVersion();
    String latestFv = WIFI_FIRMWARE_LATEST_VERSION;
 
+   /*
    if (fv < latestFv) {
       Serial.println("Please upgrade the firmware");
       Serial.println(fv);
       Serial.println(WIFI_FIRMWARE_LATEST_VERSION);
    }
+   */
 
    if (ip != nullptr) {
        WiFi.config(ip);
    }
 
-   int status = WL_IDLE_STATUS;
+   int status = WiFi.disconnect();
+
    while (status != WL_CONNECTED) {
+      Serial.println("attempting to connect...");
       status = WiFi.begin(ssid, pass);
-      delay(5000);
+      delay(10000);
    }
 
    useEthernet = false;
 
+   /*
    Serial.print("Connected to ");
    Serial.println(ssid);
+   */
 }
 
 static int InternetClass::begin(uint8_t *mac) {
@@ -46,6 +52,14 @@ static int InternetClass::begin(uint8_t *mac) {
 static void InternetClass::begin(uint8_t *mac, IPAddress ip) {
    useEthernet = true;
    Ethernet.begin(mac, ip);
+}
+
+static bool InternetClass::connected() {
+   if (useEthernet) {
+      return Ethernet.linkStatus() == LinkON;
+   } else {
+      return WiFi.status() == WL_CONNECTED;
+   }
 }
 
 static void InternetClass::hostByName(IPAddress &ip, const char *host) {

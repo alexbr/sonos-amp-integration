@@ -1,10 +1,18 @@
 /************************************************************************
- * Sonos v0.1
+ * Sonos access
  ************************************************************************/
+
+#ifndef sonos_h_
+#define sonos_h_
 
 #include <Arduino.h>
 #include <MicroXPath_P.h>
+#include <WiFiNINA.h>
+#if WIFI
+#include <WiFiNINA.h>
+#elif INTERNET
 #include <Internet.h>
+#endif
 
 // UPnP config
 #define UPNP_PORT 1400
@@ -13,7 +21,7 @@
 #define UPNP_MULTICAST_TIMEOUT_S 2
 #define UPNP_RESPONSE_TIMEOUT_MS 3000
 
-// HTTP:
+// HTTP
 #define HTTP_VERSION " HTTP/1.1\n"
 #define HEADER_HOST "Host: %d.%d.%d.%d:%d\n"
 #define HEADER_CONTENT_TYPE "Content-Type: text/xml; charset=\"utf-8\"\n"
@@ -147,7 +155,11 @@ struct TrackInfo {
 class Sonos {
 
   public:
+#if WIFI
+    Sonos(WiFiClient client, void (*internetErrCallback)(void));
+#elif INTERNET
     Sonos(InternetClient client, void (*internetErrCallback)(void));
+#endif
 
     void play(IPAddress host);
     void stop(IPAddress host);
@@ -161,7 +173,11 @@ class Sonos {
 
   private:
 
+#if WIFI
+    WiFiClient client;
+#elif INTERNET
     InternetClient client;
+#endif
 
     void (*internetErrCallback)(void);
     void upnpSet(IPAddress host, uint8_t upnpMessageType, PGM_P action_P);
@@ -182,3 +198,5 @@ class Sonos {
     uint32_t uiPow(uint16_t base, uint16_t exp);
     uint8_t convertState(const char *input);
 };
+
+#endif

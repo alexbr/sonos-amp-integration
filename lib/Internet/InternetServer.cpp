@@ -20,6 +20,4 @@ InternetClient InternetServer::available() {
        WiFiClient client = wiFiServer.available();
        return InternetClient(client);
     }
-
-    return InternetClient();
 }

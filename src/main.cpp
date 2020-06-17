@@ -4,14 +4,31 @@
 
  *********************************************************/
 
+/*
+#define WIFI true
+#define ETHERNET false
+#define INTERNET false
+#define NTP false
+*/
+
 #include "main.h"
 #include "secrets.h"
 #include <Adafruit_RGBLCDShield.h>
 #include <AmpControl.h>
+#if WIFI
+#include <SPI.h>
+#include <WiFiNINA.h>
+#elif INTERNET
 #include <Internet.h>
+#endif
 #include <LCDHelper.h>
 #include <MicroXPath_P.h>
 #include <Sonos.h>
+#if NTP
+#include <NTPClient.h>
+#include <TimeLib.h>
+#include <WiFiUDP.h>
+#endif
 #include <Wire.h>
 #include <utility/Adafruit_MCP23017.h>
 
@@ -20,6 +37,7 @@
 
 #define SOURCE_STATUS_POLL_DELAY_MS 3000
 #define BUTTON_PRESS_VIEW_DURATION_MS 5000
+#define CHECK_TIME_DELAY_MS 300000
 
 // Internet
 const char connError[] PROGMEM = "Connect error";
@@ -60,11 +78,18 @@ const char pause[] PROGMEM = "Pause";
 const char previous[] PROGMEM = "Previous";
 const char next[] PROGMEM = "Next";
 const char ip[] PROGMEM = "IP";
+const char connecting[] PROGMEM = "Connecting...";
+const char empty[] PROGMEM = "";
 
-// Ethernet setup
+// Internet setup
+#if WIFI
+WiFiServer server(80);
+WiFiClient sonosClient;
+#elif INTERNET
 const byte MAC[] PROGMEM = {0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54};
 InternetClient sonosClient;
 InternetServer server(80);
+#endif
 
 // Amp control
 AmpControl amp = AmpControl(IR_PIN_OUT, TRIGGER_PIN_OUT);
@@ -74,7 +99,6 @@ unsigned long checkSourceAfter = 0;
 // Sonos setup
 const char livingRoomSonos[] PROGMEM = "sonoslr.rodriguez.lan";
 const char kitchenSonos[] PROGMEM = "sonoskitchen.rodriguez.lan";
-// const char *sonosHost = livingRoomSonos;
 IPAddress sonosIP;
 Sonos sonos = Sonos(sonosClient, connectError);
 
@@ -82,39 +106,45 @@ Sonos sonos = Sonos(sonosClient, connectError);
 Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
 LCDHelper lcdHelper = LCDHelper(&lcd);
 
+#if NTP
+WiFiUDP ntpUdp;
+NTPClient ntpClient(ntpUdp);
+unsigned long checkTimeAfter = 0;
+#endif
+
 void setup() {
    Serial.begin(9600);
    while (!Serial) { ; /* needed for native USB */ }
 
    pinMode(IR_PIN_OUT, OUTPUT);
    pinMode(TRIGGER_PIN_OUT, OUTPUT);
-
-   byte mac[6] = {};
-   readBytes(mac, MAC, 6);
+   
+   // Set up the LCD's columns and rows
+   lcd.begin(16, 2);
 
    printStringLn("connecting internet...");
-   if (WiFi.status() != WL_NO_MODULE) {
-      char ssid[] = SECRET_SSID;
-      char passkey[] = SECRET_PASSKEY;
-      Internet.begin(ssid, passkey);
-   } else if (!Internet.begin(mac)) {
-      const IPAddress staticIP(192, 168, 10, 245);
-      // printStringLn("starting with MAC failed...");
-      Internet.begin(mac, staticIP);
-   }
+   connect();
 
    getSonosIP(sonosIP, livingRoomSonos);
 
    server.begin();
    
    printString("internet initialized: ");
+#if WIFI
+   Serial.println(WiFi.localIP());
+#elif INTERNET
    Serial.println(Internet.localIP());
+#endif
 
-   // Set up the LCD's columns and rows
-   lcd.begin(16, 2);
+#if NTP
+   ntpClient.begin();
+   setSyncProvider(getTime);
+#endif
 }
 
 void loop() {
+   checkConnection();
+   
    // Check inputs in order of precedence, skipping additional checks if any
    // prior registered input.
    bool gotInput = checkButtons();
@@ -127,6 +157,69 @@ void loop() {
    }
 
    lcdHelper.print();
+
+   /*
+   if (millis() > checkTimeAfter) {
+      checkTimeAfter = millis() + CHECK_TIME_DELAY_MS;
+      now();
+      Serial.println("date: ");
+      Serial.print(year());
+      Serial.print(month());
+      Serial.println(day());
+      Serial.print("time: ");
+      Serial.print(hour());
+      Serial.print(":");
+      Serial.print(minute());
+      Serial.print(":");
+      Serial.println(second());
+   } 
+   */
+}
+
+void checkConnection() {
+#if WIFI
+   if (WiFi.status() != WL_CONNECTED) {
+#elif INTERNET
+   if (!Internet.connected()) {
+#endif
+      connect();
+   }
+}
+
+void connect() {
+   lcdHelper.printNextP(connecting, empty, RED, 0);
+   lcdHelper.print();
+   
+#if WIFI
+   if (WiFi.status() != WL_NO_MODULE) {
+      char ssid[] = SECRET_SSID;
+      char passkey[] = SECRET_PASSKEY;
+      String fv = WiFi.firmwareVersion();
+      String latestFv = WIFI_FIRMWARE_LATEST_VERSION;
+
+      Serial.println(fv);
+      Serial.println(WIFI_FIRMWARE_LATEST_VERSION);
+
+      int status = WiFi.disconnect();
+
+      while (status != WL_CONNECTED) {
+         Serial.println("attempting to connect...");
+         status = WiFi.begin(ssid, passkey);
+         delay(10000);
+      }
+   } else {
+      Serial.println("No WiFi module");
+   }
+#elif INTERNET
+   byte mac[6] = {};
+   readBytes(mac, MAC, 6);
+
+   if (!Internet.begin(mac)) {
+      const IPAddress staticIP(192, 168, 10, 245);
+      // printStringLn("starting with MAC failed...");
+      Internet.begin(mac, staticIP);
+   }
+#endif
 }
 
 bool checkButtons() {
@@ -178,7 +271,11 @@ bool checkButtons() {
 
 bool checkServer() {
    bool gotCmd = false;
+#if WIFI
+   WiFiClient client = server.available();
+#elif INTERNET
    InternetClient client = server.available();
+#endif
 
    if (client) {
       char get[strlen_P(httpGet) + 1];
@@ -401,6 +498,12 @@ void phonoOff() {
    lcdHelper.printNextP(phonoOverride1, phonoOff2, TEAL, 0);
 }
 
+/*
+unsigned long getTime() {
+   return ntpClient.getTime();
+}
+*/
+
 void readBytes(byte *output, const byte *input, const int size) {
    for (int i = 0; i < size; i++) {
       output[i] = pgm_read_byte_near(input + i);
@@ -429,7 +532,11 @@ void printStringLn(const char *str) {
 void getSonosIP(IPAddress &ip, const char *hostP) {
    char sonosHost[strlen_P(hostP) + 1];
    strcpy_P(sonosHost, hostP);
+#if WIFI
+   WiFi.hostByName(sonosHost, ip);
+#elif INTERNET
    Internet.hostByName(ip, sonosHost);
+#endif
 }
 
 void connectError() {

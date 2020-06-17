@@ -13,11 +13,13 @@ class InternetClass {
  //private:
  public:
    static bool useEthernet;
+   static bool initialized;
    
    static void begin(char *ssid, char *pass);
    static void begin(char *ssid, char *pass, IPAddress ip);
    static int begin(uint8_t *mac);
    static void begin(uint8_t *mac, IPAddress ip);
+   static bool connected();
    static void hostByName(IPAddress &ip, const char *host);
    static IPAddress localIP();
 
