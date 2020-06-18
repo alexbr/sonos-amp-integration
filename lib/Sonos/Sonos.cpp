@@ -188,6 +188,11 @@ bool Sonos::upnpPost(IPAddress host, uint8_t upnpMessageType, PGM_P action_P,
                      PGM_P extraStart_P, PGM_P extraEnd_P,
                      const char *extraValue) {
 
+   // Free up the socket
+#if WIFI
+   client.stop();
+#endif
+
    if (!client.connect(host, UPNP_PORT)) {
       return false;
    }
@@ -317,8 +322,9 @@ void Sonos::client_write_P(PGM_P data_P, char *buffer, size_t bufferSize) {
 
 void Sonos::client_stop() {
    if (client) {
-      while (client.available())
+      while (client.available()) {
          client.read();
+      }
       client.stop();
    }
 }
@@ -354,7 +360,7 @@ void Sonos::client_stringWithin(const char *beginP, size_t beginSize,
 
    const int replacementSize = 6;
    const char replacements[replacementSize][6] = {"&amp;", "amp;", "apos;",
-                                                  "lt;",   "gt;",  "quot;"};
+                                                  "lt;", "gt;", "quot;"};
    const char replaceWiths[replacementSize] = {'\0', '&', '\'', '<', '>', '"'};
 
    while (client.available() && resultIndex < resultBufferSize) {

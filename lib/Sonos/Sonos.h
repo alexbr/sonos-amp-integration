@@ -7,6 +7,7 @@
 
 #include <Arduino.h>
 #include <MicroXPath_P.h>
+// WTF platformio?
 #include <WiFiNINA.h>
 #if WIFI
 #include <WiFiNINA.h>
