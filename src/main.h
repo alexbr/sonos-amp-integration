@@ -6,10 +6,10 @@
 bool checkButtons();
 bool checkServer();
 void checkSource();
-void checkConnection();
+bool checkConnection();
 
 // Helpers
-void connect();
+bool connect();
 uint8_t getStepsFromUri(char *uri);
 void balOn();
 void tunerOn();

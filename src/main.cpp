@@ -143,11 +143,15 @@ void setup() {
 }
 
 void loop() {
-   checkConnection();
-   
+   // Just return if there isn't a connection, nothing will work
+   if (!checkConnection()) {
+      return;
+   }
+
    // Check inputs in order of precedence, skipping additional checks if any
    // prior registered input.
    bool gotInput = checkButtons();
+
    if (!gotInput) {
       gotInput = checkServer();
    }
@@ -158,7 +162,7 @@ void loop() {
 
    lcdHelper.print();
 
-   /*
+#if NTP
    if (millis() > checkTimeAfter) {
       checkTimeAfter = millis() + CHECK_TIME_DELAY_MS;
       now();
@@ -172,21 +176,23 @@ void loop() {
       Serial.print(minute());
       Serial.print(":");
       Serial.println(second());
-   } 
-   */
+   }
+#endif
 }
 
-void checkConnection() {
+bool checkConnection() {
 #if WIFI
    if (WiFi.status() != WL_CONNECTED) {
 #elif INTERNET
    if (!Internet.connected()) {
 #endif
-      connect();
+      return connect();
    }
+   
+   return true;
 }
 
-void connect() {
+bool connect() {
    lcdHelper.printNextP(connecting, empty, RED, 0);
    lcdHelper.print();
    
@@ -207,8 +213,11 @@ void connect() {
          status = WiFi.begin(ssid, passkey);
          delay(10000);
       }
+      
+      return true;
    } else {
       Serial.println("No WiFi module");
+      return false;
    }
 #elif INTERNET
    byte mac[6] = {};
@@ -218,6 +227,7 @@ void connect() {
       const IPAddress staticIP(192, 168, 10, 245);
       // printStringLn("starting with MAC failed...");
       Internet.begin(mac, staticIP);
+      return true;
    }
 #endif
 }
