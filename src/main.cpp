@@ -4,13 +4,6 @@
 
  *********************************************************/
 
-/*
-#define WIFI true
-#define ETHERNET false
-#define INTERNET false
-#define NTP false
-*/
-
 #include "main.h"
 #include "secrets.h"
 #include <Adafruit_RGBLCDShield.h>
@@ -213,6 +206,8 @@ bool connect() {
          status = WiFi.begin(ssid, passkey);
          delay(10000);
       }
+
+      WiFi.noLowPowerMode();
       
       return true;
    } else {
