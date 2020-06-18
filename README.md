@@ -10,11 +10,12 @@ A webserver also runs on port 80 which accepts the following simple commands:
   * /volup[/\<amount>]
   * /voldown[/\<amount>]
   * /mute
+  * /bal
   * /tuner
   * /phono
 
 Additional commands should be easy to add.
 
-If an LCD/button shield is attached, durrently playing information is retrieved and displayed on the LCD screen. The buttons can be used to toggle phono input (at which point sonos polling stops or restarts), issue play, pause, next, and previous commands.
+If an LCD/button shield is attached, currently playing information is retrieved and displayed on the LCD screen. The buttons can be used to toggle phono input (at which point sonos polling stops or restarts), issue play, pause, next, and previous commands.
 
 The Sonos class is a slimmed down version of the excellent libray at https://github.com/tmittet/sonos
