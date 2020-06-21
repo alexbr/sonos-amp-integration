@@ -191,8 +191,8 @@ bool connect() {
    
 #if WIFI
    if (WiFi.status() != WL_NO_MODULE) {
-      char ssid[] = SECRET_SSID;
-      char passkey[] = SECRET_PASSKEY;
+      char *ssid = SECRET_SSID;
+      char *passkey = SECRET_PASSKEY;
       String fv = WiFi.firmwareVersion();
       String latestFv = WIFI_FIRMWARE_LATEST_VERSION;
 
@@ -200,11 +200,15 @@ bool connect() {
       Serial.println(WIFI_FIRMWARE_LATEST_VERSION);
 
       int status = WiFi.disconnect();
-
+      
       while (status != WL_CONNECTED) {
          Serial.println("attempting to connect...");
          status = WiFi.begin(ssid, passkey);
-         delay(10000);
+         Serial.print("reason: ");
+         Serial.println(WiFi.reasonCode());
+         // Give this guy a long time to connect, auth seems to be
+         // slow with my AP
+         delay(20000);
       }
 
       WiFi.noLowPowerMode();
