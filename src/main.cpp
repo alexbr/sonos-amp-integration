@@ -175,7 +175,7 @@ void loop() {
 
 bool checkConnection() {
 #if WIFI
-   if (WiFi.status() != WL_CONNECTED) {
+   if (WiFi.status() != WL_CONNECTED || WiFi.ping(sonosIP) < 0) {
 #elif INTERNET
    if (!Internet.connected()) {
 #endif
@@ -200,15 +200,19 @@ bool connect() {
       Serial.println(WIFI_FIRMWARE_LATEST_VERSION);
 
       int status = WiFi.disconnect();
-      
+      //WiFi.end();
+
+      // Give this guy a long time to connect, auth seems to be
+      // slow with my AP
+      unsigned long tryUntil = millis() + 20000;
       while (status != WL_CONNECTED) {
          Serial.println("attempting to connect...");
          status = WiFi.begin(ssid, passkey);
          Serial.print("reason: ");
          Serial.println(WiFi.reasonCode());
-         // Give this guy a long time to connect, auth seems to be
-         // slow with my AP
-         delay(20000);
+         while (status != WL_CONNECTED && millis() < tryUntil) {
+            delay(250);
+         }
       }
 
       WiFi.noLowPowerMode();
