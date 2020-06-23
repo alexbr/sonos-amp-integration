@@ -31,10 +31,14 @@
 #define SOURCE_STATUS_POLL_DELAY_MS 3000
 #define BUTTON_PRESS_VIEW_DURATION_MS 5000
 #define CHECK_TIME_DELAY_MS 300000
+#define WIFI_CONNECT_TIMEOUT_MS 20000  
+#define PING_DELAY_MS 500
 
 // Internet
-const char connError[] PROGMEM = "Connect error";
+const char connError[] PROGMEM = "connect error";
 const char ipFormat[] PROGMEM = "%d.%d.%d.%d";
+const char connectAttempt[] PROGMEM = "attempting to connect...";
+const char connectReason[] PROGMEM = "reason code: ";
 
 // HTTP Server
 const char httpGet[] PROGMEM = "GET /";
@@ -76,6 +80,7 @@ const char empty[] PROGMEM = "";
 
 // Internet setup
 #if WIFI
+unsigned long pingAfter = 0;
 WiFiServer server(80);
 WiFiClient sonosClient;
 #elif INTERNET
@@ -175,7 +180,7 @@ void loop() {
 
 bool checkConnection() {
 #if WIFI
-   if (WiFi.status() != WL_CONNECTED || WiFi.ping(sonosIP) < 0) {
+   if (WiFi.status() != WL_CONNECTED) {// || WiFi.ping(sonosIP) < 0) {
 #elif INTERNET
    if (!Internet.connected()) {
 #endif
@@ -204,11 +209,12 @@ bool connect() {
 
       // Give this guy a long time to connect, auth seems to be
       // slow with my AP
-      unsigned long tryUntil = millis() + 20000;
+      unsigned long tryUntil = millis() + WIFI_CONNECT_TIMEOUT_MS;
       while (status != WL_CONNECTED) {
-         Serial.println("attempting to connect...");
+         status = WiFi.disconnect();
+         printStringLnP(connectAttempt);
          status = WiFi.begin(ssid, passkey);
-         Serial.print("reason: ");
+         printStringP(connectReason);
          Serial.println(WiFi.reasonCode());
          while (status != WL_CONNECTED && millis() < tryUntil) {
             delay(250);
@@ -429,20 +435,23 @@ void checkSource() {
          break;
       case SONOS_STATE_PAUSED:
          strcpy_P(sonosRow1, paused);
-         sonosColor = RED;
+         sonosColor = YELLOW;
          amp.turnOffWithAntiFlap();
          break;
       case SONOS_STATE_STOPPED:
          strcpy_P(sonosRow1, stopped);
-         sonosColor = YELLOW;
+         sonosColor = WHITE;
          amp.turnOffWithAntiFlap();
          break;
       default:
+         Serial.println("sonos state unknown");
          strcpy_P(sonosRow1, unknown);
-         sonosColor = BLUE;
+         sonosColor = TEAL;
          break;
       }
 
+      // If the sonos device's source is 'master', switch to the presumed master
+      // device.
       if (source == SONOS_SOURCE_MASTER) {
          IPAddress ip;
          getSonosIP(ip, livingRoomSonos);
@@ -542,6 +551,17 @@ void printStringLn(const char *str) {
    Serial.print('\n');
 }
 
+void printStringP(const char *str) {
+   char c[strlen_P(str) + 1];
+   strcpy_P(c, str);
+   printString(c);
+}
+
+void printStringLnP(const char *str) {
+   printStringP(str);
+   Serial.print('\n');
+}
+
 void getSonosIP(IPAddress &ip, const char *hostP) {
    char sonosHost[strlen_P(hostP) + 1];
    strcpy_P(sonosHost, hostP);
@@ -553,7 +573,6 @@ void getSonosIP(IPAddress &ip, const char *hostP) {
 }
 
 void connectError() {
-   char error[strlen_P(connError) + 1];
-   strcpy_P(error, connError);
-   printStringLn(error);
+   printStringLnP(connError);
+   checkConnection();
 }

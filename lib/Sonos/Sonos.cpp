@@ -90,11 +90,9 @@ void Sonos::togglePause(IPAddress host) {
 }
 
 uint8_t Sonos::getState(IPAddress host) {
-   PGM_P path[] = {soapEnvelopeP, soapBodyP, p_GetTransportInfoR,
-                   p_CurrentTransportState};
+   PGM_P path[] = {soapEnvelopeP, soapBodyP, p_GetTransportInfoR, p_CurrentTransportState};
    char result[sizeof(SONOS_STATE_PAUSED_VALUE)] = "";
-   upnpGetString(host, UPNP_AV_TRANSPORT, p_GetTransportInfoA, "", "", path, 4,
-                 result, sizeof(result));
+   upnpGetString(host, UPNP_AV_TRANSPORT, p_GetTransportInfoA, "", "", path, 4, result, sizeof(result));
    return convertState(result);
 }
 
@@ -103,14 +101,12 @@ TrackInfo Sonos::getTrackInfo(IPAddress host, char *uriBuffer,
                               size_t titleSize, char *artist,
                               size_t artistSize) {
    TrackInfo trackInfo;
-   if (upnpPost(host, UPNP_AV_TRANSPORT, p_GetPositionInfoA, "", "", "", 0, 0,
-                "")) {
+   if (upnpPost(host, UPNP_AV_TRANSPORT, p_GetPositionInfoA, "", "", "", 0, 0, "")) {
       xPath.reset();
       char infoBuffer[20] = "";
 
       // Track duration
-      PGM_P dpath[] = {soapEnvelopeP, soapBodyP, p_GetPositionInfoR,
-                       p_TrackDuration};
+      PGM_P dpath[] = {soapEnvelopeP, soapBodyP, p_GetPositionInfoR, p_TrackDuration};
       client_xPath(dpath, 4, infoBuffer, sizeof(infoBuffer));
       trackInfo.duration = getTimeInSeconds(infoBuffer);
 
@@ -123,8 +119,7 @@ TrackInfo Sonos::getTrackInfo(IPAddress host, char *uriBuffer,
          client_stringWithin(creatorStartP, 18, dcEndP, 7, artist, artistSize);
       }
       // Track URI
-      PGM_P upath[] = {soapEnvelopeP, soapBodyP, p_GetPositionInfoR,
-                       p_TrackURI};
+      PGM_P upath[] = {soapEnvelopeP, soapBodyP, p_GetPositionInfoR, p_TrackURI};
       client_xPath(upath, 4, uriBuffer, uriBufferSize);
       trackInfo.uri = uriBuffer;
 
@@ -471,5 +466,7 @@ uint8_t Sonos::convertState(const char *input) {
       return SONOS_STATE_PLAYING;
    if (strcmp(input, SONOS_STATE_PAUSED_VALUE) == 0)
       return SONOS_STATE_PAUSED;
-   return SONOS_STATE_STOPPED;
+   if (strcmp(input, SONOS_STATE_STOPPED_VALUE) == 0)
+      return SONOS_STATE_STOPPED;
+   return SONOS_STATE_UNKNOWN;
 }

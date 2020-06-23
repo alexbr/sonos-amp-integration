@@ -21,6 +21,8 @@ void readBytes(byte *output, const byte *input, const int size);
 void readWords(int *output, const int *input, const int size);
 void printString(const char *str);
 void printStringLn(const char *str);
+void printStringP(const char *str);
+void printStringLnP(const char *str);
 void getSonosIP(IPAddress &ip, const char *sonosHost);
 void connectError();
 
