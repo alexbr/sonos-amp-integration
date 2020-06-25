@@ -23,6 +23,7 @@
 #include <WiFiUDP.h>
 #endif
 #include <Wire.h>
+#include <avr/wdt.h>
 #include <utility/Adafruit_MCP23017.h>
 
 #define TRIGGER_PIN_OUT 2 // For 12V switching
@@ -32,6 +33,8 @@
 #define BUTTON_PRESS_VIEW_DURATION_MS 5000
 #define CHECK_TIME_DELAY_MS 300000
 #define WIFI_CONNECT_TIMEOUT_MS 20000  
+#define WIFI_CONNECT_TRIES 2   
+#define WIFI_RESET_TIMEOUT_MS 30000  
 #define PING_DELAY_MS 500
 
 // Internet
@@ -75,7 +78,10 @@ const char pause[] PROGMEM = "Pause";
 const char previous[] PROGMEM = "Previous";
 const char next[] PROGMEM = "Next";
 const char ip[] PROGMEM = "IP";
+const char connectingInternet[] PROGMEM = "connecting internet...";
+const char internetInitialized[] PROGMEM = "internet intialized";
 const char connecting[] PROGMEM = "Connecting...";
+const char noWiFiModule[] PROGMEM = "No WiFi module";
 const char empty[] PROGMEM = "";
 
 // Internet setup
@@ -110,6 +116,9 @@ NTPClient ntpClient(ntpUdp);
 unsigned long checkTimeAfter = 0;
 #endif
 
+// Declare reboot function at address 0
+void(*reboot) (void) = 0;
+
 void setup() {
    Serial.begin(9600);
    while (!Serial) { ; /* needed for native USB */ }
@@ -120,14 +129,14 @@ void setup() {
    // Set up the LCD's columns and rows
    lcd.begin(16, 2);
 
-   printStringLn("connecting internet...");
+   printStringLnP(connectingInternet);
    connect();
 
    getSonosIP(sonosIP, livingRoomSonos);
 
    server.begin();
    
-   printString("internet initialized: ");
+   printStringLnP(internetInitialized);
 #if WIFI
    Serial.println(WiFi.localIP());
 #elif INTERNET
@@ -143,7 +152,7 @@ void setup() {
 void loop() {
    // Just return if there isn't a connection, nothing will work
    if (!checkConnection()) {
-      return;
+      reboot();
    }
 
    // Check inputs in order of precedence, skipping additional checks if any
@@ -180,7 +189,8 @@ void loop() {
 
 bool checkConnection() {
 #if WIFI
-   if (WiFi.status() != WL_CONNECTED) {// || WiFi.ping(sonosIP) < 0) {
+   if (WiFi.status() != WL_CONNECTED || (millis() > pingAfter && WiFi.ping(sonosIP) < 0)) {
+      pingAfter = millis() + PING_DELAY_MS;
 #elif INTERNET
    if (!Internet.connected()) {
 #endif
@@ -191,6 +201,7 @@ bool checkConnection() {
 }
 
 bool connect() {
+   printStringLnP(connecting);
    lcdHelper.printNextP(connecting, empty, RED, 0);
    lcdHelper.print();
    
@@ -210,22 +221,29 @@ bool connect() {
       // Give this guy a long time to connect, auth seems to be
       // slow with my AP
       unsigned long tryUntil = millis() + WIFI_CONNECT_TIMEOUT_MS;
-      while (status != WL_CONNECTED) {
+      uint8_t tries = 0;
+      while (status != WL_CONNECTED && tries < WIFI_CONNECT_TRIES) {
          status = WiFi.disconnect();
          printStringLnP(connectAttempt);
          status = WiFi.begin(ssid, passkey);
          printStringP(connectReason);
          Serial.println(WiFi.reasonCode());
+       
          while (status != WL_CONNECTED && millis() < tryUntil) {
             delay(250);
          }
+      
+         tries++;
       }
 
-      WiFi.noLowPowerMode();
-      
-      return true;
+      if (status == WL_CONNECTED) {
+         WiFi.noLowPowerMode();
+         return true;
+      }
+
+      return false;
    } else {
-      Serial.println("No WiFi module");
+      printStringP(noWiFiModule);
       return false;
    }
 #elif INTERNET
@@ -444,7 +462,7 @@ void checkSource() {
          amp.turnOffWithAntiFlap();
          break;
       default:
-         Serial.println("sonos state unknown");
+         printStringLn("sonos state unknown");
          strcpy_P(sonosRow1, unknown);
          sonosColor = TEAL;
          break;

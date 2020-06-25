@@ -185,7 +185,7 @@ bool Sonos::upnpPost(IPAddress host, uint8_t upnpMessageType, PGM_P action_P,
 
    // Free up the socket
 #if WIFI
-   client.stop();
+   client_stop();
 #endif
 
    if (!client.connect(host, UPNP_PORT)) {
@@ -303,7 +303,9 @@ PGM_P Sonos::getUpnpEndpoint(uint8_t upnpMessageType) {
    }
 }
 
-void Sonos::client_write(const char *data) { client.print(data); }
+void Sonos::client_write(const char *data) { 
+   client.print(data);
+}
 
 void Sonos::client_write_P(PGM_P data_P, char *buffer, size_t bufferSize) {
    uint16_t dataLen = strlen_P(data_P);
@@ -317,10 +319,12 @@ void Sonos::client_write_P(PGM_P data_P, char *buffer, size_t bufferSize) {
 
 void Sonos::client_stop() {
    if (client) {
+      uint8_t buf[20];
       while (client.available()) {
-         client.read();
+         client.read(buf, 20);
       }
       client.stop();
+      //Serial.println("client stopped");
    }
 }
 
@@ -416,9 +420,16 @@ void Sonos::client_stringWithin(const char *beginP, size_t beginSize,
 void Sonos::client_xPath(PGM_P *path, uint8_t pathSize, char *resultBuffer,
                          size_t resultBufferSize) {
    xPath.setPath(path, pathSize);
-   while (client.available() &&
-          !xPath.getValue(client.read(), resultBuffer, resultBufferSize))
-      ;
+   bool gotValue = false;
+   while (client.available() && !gotValue) {
+      char c = client.read();
+      /*
+      if (strcmp_P("CurrentTransportState", path[3])) {
+         Serial.print(c);
+      }
+      */
+      gotValue = xPath.getValue(c, resultBuffer, resultBufferSize);
+   }
 }
 
 void Sonos::upnpGetString(IPAddress host, uint8_t upnpMessageType,

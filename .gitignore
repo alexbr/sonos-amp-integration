@@ -4,3 +4,4 @@
 .gcc-flags.json
 include
 src/secrets.h
+*.log
