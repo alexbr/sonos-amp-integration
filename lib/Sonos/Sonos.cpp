@@ -183,8 +183,8 @@ bool Sonos::upnpPost(IPAddress host, uint8_t upnpMessageType, PGM_P action_P,
                      PGM_P extraStart_P, PGM_P extraEnd_P,
                      const char *extraValue) {
 
-   // Free up the socket
 #if WIFI
+   // Free up the socket
    client_stop();
 #endif
 
@@ -224,8 +224,7 @@ bool Sonos::upnpPost(IPAddress host, uint8_t upnpMessageType, PGM_P action_P,
    client_write_P(httpVersionP, buffer, sizeof(buffer));
 
    // Write HTTP header
-   sprintf_P(buffer, headerHostP, host[0], host[1], host[2], host[3],
-             UPNP_PORT); // 29 bytes max
+   sprintf_P(buffer, headerHostP, host[0], host[1], host[2], host[3], UPNP_PORT); // 29 bytes max
    client_write(buffer);
    client_write_P(headerContentTypeP, buffer, sizeof(buffer));
    sprintf_P(buffer, headerContentLengthP, contentLength); // 23 bytes max
@@ -319,12 +318,11 @@ void Sonos::client_write_P(PGM_P data_P, char *buffer, size_t bufferSize) {
 
 void Sonos::client_stop() {
    if (client) {
-      uint8_t buf[20];
+      uint8_t buf[32];
       while (client.available()) {
-         client.read(buf, 20);
+         client.read(buf, 32);
       }
       client.stop();
-      //Serial.println("client stopped");
    }
 }
 
@@ -417,18 +415,37 @@ void Sonos::client_stringWithin(const char *beginP, size_t beginSize,
    resultBuffer[resultIndex] = '\0';
 }
 
-void Sonos::client_xPath(PGM_P *path, uint8_t pathSize, char *resultBuffer,
-                         size_t resultBufferSize) {
+void Sonos::client_xPath(PGM_P *path, uint8_t pathSize, char *resultBuffer, size_t resultBufferSize) {
    xPath.setPath(path, pathSize);
+   bool checkstate = strcmp_P("CurrentTransportState", path[3]) == 0;
    bool gotValue = false;
+   //char buf[256];
+   //uint8_t index = 0;
    while (client.available() && !gotValue) {
       char c = client.read();
       /*
-      if (strcmp_P("CurrentTransportState", path[3])) {
+      if (checkstate) {//} && index < 256) {
          Serial.print(c);
+         //buf[index++] = c;
       }
       */
       gotValue = xPath.getValue(c, resultBuffer, resultBufferSize);
+   }
+
+   /*
+   char path3[strlen_P(path[3])];
+   strcpy_P(path3, path[3]);
+   Serial.println(path3);
+   Serial.println(checkstate);
+   */
+
+   if (checkstate) {
+      Serial.println(resultBuffer);
+      if (!gotValue) {
+         //buf[index] = '\0';
+         Serial.println("no value");
+         //Serial.println(buf);
+      }
    }
 }
 

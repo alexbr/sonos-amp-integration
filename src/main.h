@@ -7,7 +7,7 @@
 bool checkButtons();
 bool checkServer();
 void checkSource();
-bool checkConnection();
+bool checkConnectionStatus(bool forcePing);
 
 // Helpers
 bool connect();

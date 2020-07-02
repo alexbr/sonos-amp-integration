@@ -82,9 +82,12 @@ const char connectingInternet[] PROGMEM = "connecting internet...";
 const char internetInitialized[] PROGMEM = "internet intialized";
 const char connecting[] PROGMEM = "Connecting...";
 const char noWiFiModule[] PROGMEM = "No WiFi module";
+
 const char empty[] PROGMEM = "";
+const char rebooting[] PROGMEM = "rebooting...";
 
 // Internet setup
+IPAddress gatewayIP(192, 168, 10, 1);
 #if WIFI
 unsigned long pingAfter = 0;
 WiFiServer server(80);
@@ -150,8 +153,9 @@ void setup() {
 }
 
 void loop() {
-   // Just return if there isn't a connection, nothing will work
-   if (!checkConnection()) {
+   // Try to connect if connection looks down, reboot if no bueno. 
+   if (!checkConnectionStatus(false) && !connect()) {
+      printStringLnP(rebooting);
       reboot();
    }
 
@@ -187,17 +191,16 @@ void loop() {
 #endif
 }
 
-bool checkConnection() {
+bool checkConnectionStatus(bool forcePing) {
 #if WIFI
-   if (WiFi.status() != WL_CONNECTED || (millis() > pingAfter && WiFi.ping(sonosIP) < 0)) {
+   if (millis() > pingAfter) {
+      forcePing = true;
       pingAfter = millis() + PING_DELAY_MS;
-#elif INTERNET
-   if (!Internet.connected()) {
-#endif
-      return connect();
    }
-   
-   return true;
+   return WiFi.status() == WL_CONNECTED && (!forcePing || WiFi.ping(gatewayIP) >= 0);
+#else 
+   return Internet.connected();
+#endif
 }
 
 bool connect() {
@@ -206,46 +209,53 @@ bool connect() {
    lcdHelper.print();
    
 #if WIFI
-   if (WiFi.status() != WL_NO_MODULE) {
-      char *ssid = SECRET_SSID;
-      char *passkey = SECRET_PASSKEY;
-      String fv = WiFi.firmwareVersion();
-      String latestFv = WIFI_FIRMWARE_LATEST_VERSION;
-
-      Serial.println(fv);
-      Serial.println(WIFI_FIRMWARE_LATEST_VERSION);
-
-      int status = WiFi.disconnect();
-      //WiFi.end();
-
-      // Give this guy a long time to connect, auth seems to be
-      // slow with my AP
-      unsigned long tryUntil = millis() + WIFI_CONNECT_TIMEOUT_MS;
-      uint8_t tries = 0;
-      while (status != WL_CONNECTED && tries < WIFI_CONNECT_TRIES) {
-         status = WiFi.disconnect();
-         printStringLnP(connectAttempt);
-         status = WiFi.begin(ssid, passkey);
-         printStringP(connectReason);
-         Serial.println(WiFi.reasonCode());
-       
-         while (status != WL_CONNECTED && millis() < tryUntil) {
-            delay(250);
-         }
-      
-         tries++;
-      }
-
-      if (status == WL_CONNECTED) {
-         WiFi.noLowPowerMode();
-         return true;
-      }
-
-      return false;
-   } else {
-      printStringP(noWiFiModule);
+   if (WiFi.status() == WL_NO_MODULE) {
+      printStringLnP(noWiFiModule);
       return false;
    }
+
+   char *ssid = SECRET_SSID;
+   char *passkey = SECRET_PASSKEY;
+   String fv = WiFi.firmwareVersion();
+   String latestFv = WIFI_FIRMWARE_LATEST_VERSION;
+
+   Serial.println(fv);
+   Serial.println(WIFI_FIRMWARE_LATEST_VERSION);
+
+   int status = WiFi.disconnect();
+   //WiFi.end();
+
+   // Give this guy a long time to connect, auth seems to be
+   // slow with my AP
+   uint8_t tries = 0;
+   bool connected = false;
+
+   while (!connected && tries < WIFI_CONNECT_TRIES) {
+      status = WiFi.disconnect();
+      printStringLnP(connectAttempt);
+      status = WiFi.begin(ssid, passkey);
+      printStringP(connectReason);
+      Serial.println(WiFi.reasonCode());
+      printString("tries: ");
+      Serial.println(tries);
+
+      unsigned long tryUntil = millis() + WIFI_CONNECT_TIMEOUT_MS;
+      while (!(connected = checkConnectionStatus(true)) && millis() < tryUntil) {
+         delay(250);
+      }
+
+      tries++;
+   }
+
+   if (connected) {
+      Serial.println("connect ok");
+      WiFi.noLowPowerMode();
+      return true;
+   } else {
+      Serial.println("connection failed");
+   }
+
+   return false;
 #elif INTERNET
    byte mac[6] = {};
    readBytes(mac, MAC, 6);
@@ -592,5 +602,4 @@ void getSonosIP(IPAddress &ip, const char *hostP) {
 
 void connectError() {
    printStringLnP(connError);
-   checkConnection();
 }
