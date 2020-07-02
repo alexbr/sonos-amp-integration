@@ -153,7 +153,7 @@ void setup() {
 }
 
 void loop() {
-   // Try to connect if connection looks down, reboot if no bueno. 
+   // Try to connect if connection appears to be down; reboot if no bueno. 
    if (!checkConnectionStatus(false) && !connect()) {
       printStringLnP(rebooting);
       reboot();

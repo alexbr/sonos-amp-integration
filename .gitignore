@@ -2,6 +2,5 @@
 .vscode
 .clang_complete
 .gcc-flags.json
-include
 src/secrets.h
 *.log
