@@ -3,6 +3,17 @@
 
 #include <Arduino.h>
 
+#define TRIGGER_PIN_OUT 2 // For 12V switching
+#define IR_PIN_OUT 3      // Serial IR out
+
+#define SOURCE_STATUS_POLL_DELAY_MS 3000
+#define BUTTON_PRESS_VIEW_DURATION_MS 5000
+#define CHECK_TIME_DELAY_MS 300000
+#define WIFI_CONNECT_TIMEOUT_MS 20000  
+#define WIFI_CONNECT_TRIES 2   
+#define WIFI_RESET_TIMEOUT_MS 30000  
+#define PING_DELAY_MS 500
+
 // Main loop functions
 bool checkButtons();
 bool checkServer();

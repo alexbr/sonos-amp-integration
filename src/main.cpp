@@ -11,31 +11,21 @@
 #if WIFI
 #include <SPI.h>
 #include <WiFiNINA.h>
-#elif INTERNET
+#include <WiFiClient.h>
+#else
 #include <Internet.h>
 #endif
 #include <LCDHelper.h>
 #include <MicroXPath_P.h>
 #include <Sonos.h>
 #if NTP
+#include <WiFiUDP.h>
 #include <NTPClient.h>
 #include <TimeLib.h>
-#include <WiFiUDP.h>
 #endif
 #include <Wire.h>
 #include <avr/wdt.h>
 #include <utility/Adafruit_MCP23017.h>
-
-#define TRIGGER_PIN_OUT 2 // For 12V switching
-#define IR_PIN_OUT 3      // Serial IR out
-
-#define SOURCE_STATUS_POLL_DELAY_MS 3000
-#define BUTTON_PRESS_VIEW_DURATION_MS 5000
-#define CHECK_TIME_DELAY_MS 300000
-#define WIFI_CONNECT_TIMEOUT_MS 20000  
-#define WIFI_CONNECT_TRIES 2   
-#define WIFI_RESET_TIMEOUT_MS 30000  
-#define PING_DELAY_MS 500
 
 // Internet
 const char connError[] PROGMEM = "connect error";
@@ -92,7 +82,7 @@ IPAddress gatewayIP(192, 168, 10, 1);
 unsigned long pingAfter = 0;
 WiFiServer server(80);
 WiFiClient sonosClient;
-#elif INTERNET
+#else
 const byte MAC[] PROGMEM = {0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54};
 InternetClient sonosClient;
 InternetServer server(80);
@@ -142,7 +132,7 @@ void setup() {
    printStringLnP(internetInitialized);
 #if WIFI
    Serial.println(WiFi.localIP());
-#elif INTERNET
+#else
    Serial.println(Internet.localIP());
 #endif
 
@@ -256,7 +246,7 @@ bool connect() {
    }
 
    return false;
-#elif INTERNET
+#else
    byte mac[6] = {};
    readBytes(mac, MAC, 6);
 
@@ -320,7 +310,7 @@ bool checkServer() {
    bool gotCmd = false;
 #if WIFI
    WiFiClient client = server.available();
-#elif INTERNET
+#else
    InternetClient client = server.available();
 #endif
 
@@ -548,11 +538,9 @@ void phonoOff() {
    lcdHelper.printNextP(phonoOverride1, phonoOff2, TEAL, 0);
 }
 
-/*
 unsigned long getTime() {
    return ntpClient.getTime();
 }
-*/
 
 void readBytes(byte *output, const byte *input, const int size) {
    for (int i = 0; i < size; i++) {
@@ -595,7 +583,7 @@ void getSonosIP(IPAddress &ip, const char *hostP) {
    strcpy_P(sonosHost, hostP);
 #if WIFI
    WiFi.hostByName(sonosHost, ip);
-#elif INTERNET
+#else
    Internet.hostByName(ip, sonosHost);
 #endif
 }

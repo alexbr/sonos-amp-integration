@@ -4,6 +4,7 @@ clang
 %cpp -std=c++11
 
 -I/mnt/c/Users/Alex/Documents/Arduino/sonos-amp-integration/include
+-I/mnt/c/Users/Alex/Documents/Arduino/sonos-amp-integration/lib
 -I/mnt/c/Users/Alex/Documents/Arduino/sonos-amp-integration/src
 -I/home/alex/.platformio/packages/framework-arduino-avr/cores/arduino
 -I/home/alex/.platformio/packages/framework-arduino-avr/variants/standard

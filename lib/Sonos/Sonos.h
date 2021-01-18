@@ -11,7 +11,7 @@
 #include <WiFiNINA.h>
 #if WIFI
 #include <WiFiNINA.h>
-#elif INTERNET
+#else
 #include <Internet.h>
 #endif
 
@@ -157,7 +157,7 @@ class Sonos {
   public:
 #if WIFI
     Sonos(WiFiClient client, void (*internetErrCallback)(void));
-#elif INTERNET
+#else
     Sonos(InternetClient client, void (*internetErrCallback)(void));
 #endif
 
@@ -175,7 +175,7 @@ class Sonos {
 
 #if WIFI
     WiFiClient client;
-#elif INTERNET
+#else
     InternetClient client;
 #endif
 

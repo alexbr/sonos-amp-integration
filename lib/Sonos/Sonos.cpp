@@ -60,7 +60,7 @@ const char p_CurrentTransportState[] PROGMEM =
 
 #if WIFI
 Sonos::Sonos(WiFiClient client, void (*internetErrCallback)(void)) {
-#elif INTERNET
+#else
 Sonos::Sonos(InternetClient client, void (*internetErrCallback)(void)) {
 #endif
    this->client = client;
