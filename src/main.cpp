@@ -101,7 +101,7 @@ Sonos sonos = Sonos(sonosClient, connectError);
 
 // LCD
 Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
-LCDHelper lcdHelper = LCDHelper(&lcd);
+LCDHelper lcdHelper = LCDHelper(lcd);
 
 #if NTP
 WiFiUDP ntpUdp;

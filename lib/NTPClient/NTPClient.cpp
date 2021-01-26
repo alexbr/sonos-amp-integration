@@ -27,12 +27,12 @@ Date NTPClient::getDate() {
 unsigned long NTPClient::getTime() {
    // Discard previous replies
    while (udp->parsePacket());
-   
+
    sendNTPpacket(timeServer);
-   
+
    unsigned long epoch = 0;
    unsigned long beginWait = millis();
-   
+
    // Loop for a little to see if a reply is available
    while (millis() - beginWait < 1000) {
       if (udp->parsePacket() >= NTP_PACKET_SIZE) {

@@ -21,7 +21,7 @@
 class LCDHelper {
 
    public:
-      LCDHelper(Adafruit_RGBLCDShield *lcd);
+      LCDHelper(Adafruit_RGBLCDShield &lcd);
 
       void printNext(
             const char *row1,

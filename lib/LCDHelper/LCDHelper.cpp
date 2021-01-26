@@ -2,8 +2,8 @@
 #include <Arduino.h>
 #include <Adafruit_RGBLCDShield.h>
 
-LCDHelper::LCDHelper(Adafruit_RGBLCDShield *lcd) {
-   this->lcd = lcd;
+LCDHelper::LCDHelper(Adafruit_RGBLCDShield &lcd) {
+   this->lcd = &lcd;
    color = VIOLET;
    clearDisplay = true;
    displayUntil = 0;
