@@ -18,10 +18,11 @@
 #include <LCDHelper.h>
 #include <MicroXPath_P.h>
 #include <Sonos.h>
-#if NTP
+#if TIME
 #include <WiFiUDP.h>
 #include <NTPClient.h>
 #include <TimeLib.h>
+#include <Timezone.h>
 #endif
 #include <Wire.h>
 #include <avr/wdt.h>
@@ -69,7 +70,7 @@ const char previous[] PROGMEM = "Previous";
 const char next[] PROGMEM = "Next";
 const char ip[] PROGMEM = "IP";
 const char connectingInternet[] PROGMEM = "connecting internet...";
-const char internetInitialized[] PROGMEM = "internet intialized";
+const char internetInitialized[] PROGMEM = "internet initialized";
 const char connecting[] PROGMEM = "Connecting...";
 const char noWiFiModule[] PROGMEM = "No WiFi module";
 
@@ -103,10 +104,16 @@ Sonos sonos = Sonos(sonosClient, connectError);
 Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
 LCDHelper lcdHelper = LCDHelper(lcd);
 
-#if NTP
+#if TIME
+// time.nist.gov NTP server
+IPAddress timeServer(129, 6, 15, 28);
 WiFiUDP ntpUdp;
-NTPClient ntpClient(ntpUdp);
+NTPClient ntpClient(ntpUdp, timeServer);
 unsigned long checkTimeAfter = 0;
+TimeChangeRule myPST = {"PST", Second, Sun, Mar, 2, -7 * 60}; // Daylight time = UTC - 7 hours
+TimeChangeRule myPDT = {"PDT", First, Sun, Nov, 2, -8 * 60};  // Standard time = UTC - 8 hours
+Timezone myTZ(myPST, myPDT);
+bool screenOff = false;
 #endif
 
 // Declare reboot function at address 0
@@ -136,7 +143,7 @@ void setup() {
    Serial.println(Internet.localIP());
 #endif
 
-#if NTP
+#if TIME
    ntpClient.begin();
    setSyncProvider(getTime);
 #endif
@@ -161,24 +168,29 @@ void loop() {
       checkSource();
    }
 
-   lcdHelper.print();
 
-#if NTP
+#if TIME
    if (millis() > checkTimeAfter) {
       checkTimeAfter = millis() + CHECK_TIME_DELAY_MS;
-      now();
-      Serial.println("date: ");
-      Serial.print(year());
-      Serial.print(month());
-      Serial.println(day());
-      Serial.print("time: ");
-      Serial.print(hour());
-      Serial.print(":");
-      Serial.print(minute());
-      Serial.print(":");
-      Serial.println(second());
+      
+      time_t t = now();
+      t = myTZ.toLocal(t);
+      int hhmm = hour(t) * 100 + minute(t);
+      Serial.println(hhmm);
+      if (hhmm > LCD_OFF_AFTER || hhmm <= LCD_ON_AFTER) {
+         screenOff = true;
+      } else {
+         screenOff = false;
+      }
    }
 #endif
+
+   if (screenOff) {
+      lcdHelper.screenOff();
+   } else {
+      lcdHelper.screenOn();
+      lcdHelper.print();
+   }
 }
 
 bool checkConnectionStatus(bool forcePing) {
@@ -538,9 +550,11 @@ void phonoOff() {
    lcdHelper.printNextP(phonoOverride1, phonoOff2, TEAL, 0);
 }
 
+#if TIME
 unsigned long getTime() {
    return ntpClient.getTime();
 }
+#endif
 
 void readBytes(byte *output, const byte *input, const int size) {
    for (int i = 0; i < size; i++) {

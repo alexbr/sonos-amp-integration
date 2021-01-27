@@ -21,7 +21,7 @@ struct Date {
    }
 
    uint8_t getHours() {
-      return ((time % 86400L) / 3600) - 7; // PST, no daylight savings for now!!!
+      return ((time % 86400L) / 3600);
    }
 
    uint8_t getMinutes() { return (time % 3600) / 60; }
@@ -32,11 +32,12 @@ struct Date {
 class NTPClient {
  private:
    UDP *udp;
+   IPAddress *timeServer;
    int port;
    unsigned long sendNTPpacket(IPAddress &address);
 
  public:
-   NTPClient(UDP &udp);
+   NTPClient(UDP &udp, IPAddress &timeServer);
    void begin();
    Date getDate();
    unsigned long getTime();

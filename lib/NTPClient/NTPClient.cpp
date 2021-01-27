@@ -5,14 +5,12 @@
 #include "NTPClient.h"
 #include <Arduino.h>
 
-// time.nist.gov NTP server
-IPAddress timeServer(129, 6, 15, 28);
-
 // buffer to hold incoming and outgoing packets
 byte packetBuffer[NTP_PACKET_SIZE];
 
-NTPClient::NTPClient(UDP &udp) {
+NTPClient::NTPClient(UDP &udp, IPAddress &timeServer) {
    this->udp = &udp;
+   this->timeServer = &timeServer;
    this->port = DEFAULT_UDP_PORT;
 }
 
@@ -28,7 +26,7 @@ unsigned long NTPClient::getTime() {
    // Discard previous replies
    while (udp->parsePacket());
 
-   sendNTPpacket(timeServer);
+   sendNTPpacket(*(this->timeServer));
 
    unsigned long epoch = 0;
    unsigned long beginWait = millis();
@@ -50,8 +48,6 @@ unsigned long NTPClient::getTime() {
          // Unix time starts on Jan 1 1970. In seconds, that's 2208988800:
          const unsigned long seventyYears = 2208988800UL;
          epoch = secsSince1900 - seventyYears;
-         epoch = epoch - (7 * 3600);
-         Serial.println(epoch);
       }
    }
 

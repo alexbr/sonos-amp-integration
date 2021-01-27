@@ -3,6 +3,7 @@
 
 #include <Adafruit_RGBLCDShield.h>
 
+#define BLACK 0x0
 #define RED 0x1
 #define YELLOW 0x3
 #define GREEN 0x2
@@ -15,7 +16,7 @@
 #define LCD_ROW_STR_LENGTH (LCD_ROW_LENGTH + 1)
 #define LCD_ROW1_LENGTH LCD_ROW_LENGTH
 #define LCD_ROW2_LENGTH 100
-#define LCD_SCROLL_DELAY_MS 800
+#define LCD_SCROLL_DELAY_MS 300
 #define LCD_SCROLL_PADDING 15
 
 class LCDHelper {
@@ -42,6 +43,8 @@ class LCDHelper {
             const char *row2P,
             const int color);
       void print();
+      void screenOff();
+      void screenOn();
 
    private:
       Adafruit_RGBLCDShield *lcd;

@@ -4,11 +4,11 @@
 
 LCDHelper::LCDHelper(Adafruit_RGBLCDShield &lcd) {
    this->lcd = &lcd;
-   color = VIOLET;
-   clearDisplay = true;
-   displayUntil = 0;
-   nextScrollTime = 0;
-   scrollIndex = 0;
+   this->color = VIOLET;
+   this->clearDisplay = true;
+   this->displayUntil = 0;
+   this->nextScrollTime = 0;
+   this->scrollIndex = 0;
 }
 
 void LCDHelper::printNext(
@@ -27,7 +27,7 @@ void LCDHelper::printNext(
 
    strcpy(this->row1, row1);
    strcpy(this->row2, row2);
-   clearDisplay = true;
+   this->clearDisplay = true;
 }
 
 void LCDHelper::printNextP(
@@ -37,9 +37,9 @@ void LCDHelper::printNextP(
       const unsigned long displayUntil) {
    char row1[strlen_P(row1P) + 1];
    char row2[strlen_P(row2P) + 1];
-   strcpy_P(row1, row1P);
-   strcpy_P(row2, row2P);
-   printNext(row1, row2, color, 0);
+   strcpy_P(this->row1, row1P);
+   strcpy_P(this->row2, row2P);
+   printNext(this->row1, this->row2, color, 0);
 }
 
 void LCDHelper::maybePrintNext(
@@ -76,19 +76,19 @@ void LCDHelper::maybeScrollRow(
       return;
    }
 
-   if (millis() >= nextScrollTime) {
-      nextScrollTime = millis() + LCD_SCROLL_DELAY_MS;
-      scrollIndex++;
+   if (millis() >= this->nextScrollTime) {
+      this->nextScrollTime = millis() + LCD_SCROLL_DELAY_MS;
+      this->scrollIndex++;
 
       // We've scrolled beyond all of the row's content plus the padding, so
       // reset the pointer to 0.
-      if (scrollIndex >= rowLen + LCD_SCROLL_PADDING) {
-         scrollIndex = 0;
+      if (this->scrollIndex >= rowLen + LCD_SCROLL_PADDING) {
+         this->scrollIndex = 0;
       }
    }
 
    for (int i = 0; i < LCD_ROW_LENGTH; i++) {
-      unsigned int rowIndex = scrollIndex + i;
+      unsigned int rowIndex = this->scrollIndex + i;
       unsigned char c;
       if (rowIndex >= rowLen) {
          // This is the padding between the last char of the content and the
@@ -119,19 +119,31 @@ void LCDHelper::copy16(
 }
 
 void LCDHelper::print() {
-   if (clearDisplay) {
+   if (this->clearDisplay) {
       lcd->clear();
+      // Restart scrolling
+      this->scrollIndex = -1;
       clearDisplay = false;
    }
 
    char row[LCD_ROW_STR_LENGTH];
-   maybeScrollRow(row, row1);
+   maybeScrollRow(row, this->row1);
    lcd->setCursor(0, 0);
    lcd->print(row);
 
-   maybeScrollRow(row, row2);
+   maybeScrollRow(row, this->row2);
    lcd->setCursor(0, 1);
    lcd->print(row);
 
-   lcd->setBacklight(color);
+   lcd->setBacklight(this->color);
+}
+
+void LCDHelper::screenOff() {
+   this->lcd->clear();
+   this->lcd->setBacklight(BLACK);
+   this->lcd->noDisplay();
+}
+
+void LCDHelper::screenOn() {
+   this->lcd->display();
 }
