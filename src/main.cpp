@@ -173,11 +173,10 @@ void loop() {
    if (millis() > checkTimeAfter) {
       checkTimeAfter = millis() + CHECK_TIME_DELAY_MS;
       
-      time_t t = now();
-      t = myTZ.toLocal(t);
+      time_t t = myTZ.toLocal(now());
       int hhmm = hour(t) * 100 + minute(t);
       Serial.println(hhmm);
-      if (hhmm > LCD_OFF_AFTER || hhmm <= LCD_ON_AFTER) {
+      if (hhmm >= LCD_OFF_AFTER || hhmm < LCD_ON_AFTER) {
          screenOff = true;
       } else {
          screenOff = false;
