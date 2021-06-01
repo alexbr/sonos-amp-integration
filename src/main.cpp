@@ -460,7 +460,7 @@ void checkSource() {
          strcpy_P(sonosRow1, playing);
          sonosColor = VIOLET;
          amp.turnOnWithAntiFlap();
-         balOn();
+         sonosInput();
          break;
       case SONOS_STATE_PAUSED:
          strcpy_P(sonosRow1, paused);
@@ -526,6 +526,14 @@ uint8_t getStepsFromUri(char *uri) {
    }
 
    return volSteps;
+}
+
+void sonosInput() {
+   if (strcmp_P(SONOS_INPUT, balUri) == 0) {
+      balOn();
+   } else if (strcmp_P(SONOS_INPUT, tunerUri) == 0) {
+      tunerOn();
+   }
 }
 
 void balOn() {

@@ -15,6 +15,7 @@
 #define PING_DELAY_MS 500
 #define LCD_ON_AFTER 0630 // HHMM
 #define LCD_OFF_AFTER 2330
+#define SONOS_INPUT "bal" //"tuner" // "bal"
 
 // Main loop functions
 bool checkButtons();
@@ -25,6 +26,7 @@ bool checkConnectionStatus(bool forcePing);
 // Helpers
 bool connect();
 uint8_t getStepsFromUri(char *uri);
+void sonosInput();
 void balOn();
 void tunerOn();
 void phonoOn();
