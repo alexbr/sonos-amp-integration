@@ -32,7 +32,7 @@ void tunerOn();
 void phonoOn();
 void phonoOff();
 unsigned long getTime();
-void readBytes(byte *output, const byte *input, const int size);
+void readBytes(int *output, const int *input, const int size);
 void readWords(int *output, const int *input, const int size);
 void printString(const char *str);
 void printStringLn(const char *str);

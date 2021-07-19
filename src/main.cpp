@@ -42,8 +42,8 @@ const char voldownUri[] PROGMEM = "voldown";
 const char tunerUri[] PROGMEM = "tuner";
 const char balUri[] PROGMEM = "bal";
 const char phonoUri[] PROGMEM = "phono";
-const char pwrOnUri[] PROGMEM = "pwron";
-const char pwrOffUri[] PROGMEM = "pwroff";
+const char onnUri[] PROGMEM = "pwron";
+const char offUri[] PROGMEM = "pwroff";
 const char httpRequest[] PROGMEM =
     "HTTP/1.1 200 OK\nContent-Type: text/html\nConnection: close\n\nGot URI ";
 
@@ -84,7 +84,7 @@ unsigned long pingAfter = 0;
 WiFiServer server(80);
 WiFiClient sonosClient;
 #else
-const byte MAC[] PROGMEM = {0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54};
+const int* MAC[] PROGMEM = {0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54};
 InternetClient sonosClient;
 InternetServer server(80);
 #endif
@@ -95,8 +95,6 @@ char intendedSource = SRC_UNKNOWN;
 unsigned long checkSourceAfter = 0;
 
 // Sonos setup
-const char livingRoomSonos[] PROGMEM = "sonoslr.rodriguez.lan";
-const char kitchenSonos[] PROGMEM = "sonoskitchen.rodriguez.lan";
 IPAddress sonosIP;
 Sonos sonos = Sonos(sonosClient, connectError);
 
@@ -121,7 +119,6 @@ void(*reboot) (void) = 0;
 
 void setup() {
    Serial.begin(9600);
-   while (!Serial) { ; /* needed for native USB */ }
 
    pinMode(IR_PIN_OUT, OUTPUT);
    pinMode(TRIGGER_PIN_OUT, OUTPUT);
@@ -258,7 +255,7 @@ bool connect() {
 
    return false;
 #else
-   byte mac[6] = {};
+   int* mac[6] = {};
    readBytes(mac, MAC, 6);
 
    if (!Internet.begin(mac)) {
@@ -407,11 +404,11 @@ bool checkServer() {
             lcdHelper.printNext(strcpy_P(row, phono), "", GREEN, displayUntil);
             amp.turnOn();
             phonoOn();
-         } else if (strcmp_P(uri, pwrOnUri) == 0) {
+         } else if (strcmp_P(uri, onnUri) == 0) {
             lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN,
                                 displayUntil);
             amp.turnOn();
-         } else if (strcmp_P(uri, pwrOffUri) == 0) {
+         } else if (strcmp_P(uri, offUri) == 0) {
             lcdHelper.printNext(strcpy_P(row, powerOff), "", GREEN,
                                 displayUntil);
             intendedSource = SRC_UNKNOWN;
