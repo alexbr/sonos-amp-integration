@@ -276,26 +276,31 @@ bool checkButtons() {
     char row1[10];
     unsigned long displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
 
+    // Play
     if (buttons & BUTTON_UP) {
       strcpy_P(row1, play);
       lcdHelper.printNext(row1, "", VIOLET, displayUntil);
       sonos.play(sonosIP);
     }
+    // Pause
     if (buttons & BUTTON_DOWN) {
       strcpy_P(row1, pause);
       lcdHelper.printNext(row1, "", RED, displayUntil);
       sonos.pause(sonosIP);
     }
+    // Previous
     if (buttons & BUTTON_LEFT) {
       strcpy_P(row1, previous);
       lcdHelper.printNext(row1, "", YELLOW, displayUntil);
       sonos.skip(sonosIP, 0); // back
     }
+    // Next
     if (buttons & BUTTON_RIGHT) {
       strcpy_P(row1, next);
       lcdHelper.printNext(row1, "", TEAL, displayUntil);
       sonos.skip(sonosIP, 1); // forward
     }
+    // Phono toggle
     if (buttons & BUTTON_SELECT) {
       if (intendedSource == SRC_PHONO) {
         phonoOff();
