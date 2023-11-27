@@ -4,80 +4,80 @@
 static bool InternetClass::useEthernet = true;
 
 static void InternetClass::begin(char *ssid, char *pass) {
-    begin(ssid, pass, nullptr);
+  begin(ssid, pass, nullptr);
 }
 
 static void InternetClass::begin(char *ssid, char *pass, IPAddress ip) {
-   if (WiFi.status() == WL_NO_MODULE) {
-      //Serial.println("WiFi module failed!");
-      return;
-   }
+  if (WiFi.status() == WL_NO_MODULE) {
+    // Serial.println("WiFi module failed!");
+    return;
+  }
 
-   String fv = WiFi.firmwareVersion();
-   String latestFv = WIFI_FIRMWARE_LATEST_VERSION;
+  String fv = WiFi.firmwareVersion();
+  String latestFv = WIFI_FIRMWARE_LATEST_VERSION;
 
-   /*
-   if (fv < latestFv) {
-      Serial.println("Please upgrade the firmware");
-      Serial.println(fv);
-      Serial.println(WIFI_FIRMWARE_LATEST_VERSION);
-   }
-   */
+  /*
+  if (fv < latestFv) {
+     Serial.println("Please upgrade the firmware");
+     Serial.println(fv);
+     Serial.println(WIFI_FIRMWARE_LATEST_VERSION);
+  }
+  */
 
-   if (ip != nullptr) {
-       WiFi.config(ip);
-   }
+  if (ip != nullptr) {
+    WiFi.config(ip);
+  }
 
-   int status = WiFi.disconnect();
+  int status = WiFi.disconnect();
 
-   while (status != WL_CONNECTED) {
-      Serial.println("attempting to connect...");
-      status = WiFi.begin(ssid, pass);
-      delay(10000);
-   }
+  while (status != WL_CONNECTED) {
+    Serial.println("attempting to connect...");
+    status = WiFi.begin(ssid, pass);
+    delay(10000);
+  }
 
-   useEthernet = false;
+  useEthernet = false;
 
-   /*
-   Serial.print("Connected to ");
-   Serial.println(ssid);
-   */
+  /*
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  */
 }
 
 static int InternetClass::begin(uint8_t *mac) {
-   useEthernet = true;
-   return Ethernet.begin(mac);
+  useEthernet = true;
+  return Ethernet.begin(mac);
 }
 
 static void InternetClass::begin(uint8_t *mac, IPAddress ip) {
-   useEthernet = true;
-   Ethernet.begin(mac, ip);
+  useEthernet = true;
+  Ethernet.begin(mac, ip);
 }
 
 static bool InternetClass::connected() {
-   if (useEthernet) {
-      return Ethernet.linkStatus() == LinkON;
-   } else {
-      return WiFi.status() == WL_CONNECTED;
-   }
+  if (useEthernet) {
+    return Ethernet.linkStatus() == LinkON;
+  } else {
+    return WiFi.status() == WL_CONNECTED;
+  }
 }
 
 static void InternetClass::hostByName(IPAddress &ip, const char *host) {
-   if (useEthernet) {
-      DNSClient dns;
-      dns.begin(Ethernet.dnsServerIP());
-      dns.getHostByName(host, ip);
-   } else {
-      WiFi.hostByName(host, ip);
-   }
+  if (useEthernet) {
+    DNSClient dns;
+    dns.begin(Ethernet.dnsServerIP());
+    dns.getHostByName(host, ip);
+  } else {
+    WiFi.hostByName(host, ip);
+  }
 }
 
 static IPAddress InternetClass::localIP() {
-   if (useEthernet) {
-      return Ethernet.localIP();
-   } else {
-      return WiFi.localIP();
-   }
+  if (useEthernet) {
+    return Ethernet.localIP();
+  } else {
+    return WiFi.localIP();
+  }
 }
 
 InternetClass InternetClass;

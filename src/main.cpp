@@ -10,8 +10,8 @@
 #include <AmpControl.h>
 #if WIFI
 #include <SPI.h>
-#include <WiFiNINA.h>
 #include <WiFiClient.h>
+#include <WiFiNINA.h>
 #else
 #include <Internet.h>
 #endif
@@ -19,10 +19,10 @@
 #include <MicroXPath_P.h>
 #include <Sonos.h>
 #if TIME
-#include <WiFiUDP.h>
 #include <NTPClient.h>
 #include <TimeLib.h>
 #include <Timezone.h>
+#include <WiFiUDP.h>
 #endif
 #include <Wire.h>
 #include <avr/wdt.h>
@@ -84,7 +84,7 @@ unsigned long pingAfter = 0;
 WiFiServer server(80);
 WiFiClient sonosClient;
 #else
-const int* MAC[] PROGMEM = {0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54};
+const int *MAC[] PROGMEM = {0xA8, 0x61, 0x0A, 0xAE, 0x5D, 0x54};
 InternetClient sonosClient;
 InternetServer server(80);
 #endif
@@ -109,503 +109,494 @@ WiFiUDP ntpUdp;
 NTPClient ntpClient(ntpUdp, timeServer);
 unsigned long checkTimeAfter = 0;
 TimeChangeRule myPST = {"PST", Second, Sun, Mar, 2, -7 * 60}; // Daylight time = UTC - 7 hours
-TimeChangeRule myPDT = {"PDT", First, Sun, Nov, 2, -8 * 60};  // Standard time = UTC - 8 hours
+TimeChangeRule myPDT = {"PDT", First, Sun, Nov, 2, -8 * 60}; // Standard time = UTC - 8 hours
 Timezone myTZ(myPST, myPDT);
 bool screenOff = false;
 #endif
 
 // Declare reboot function at address 0
-void(*reboot) (void) = 0;
+void (*reboot)(void) = 0;
 
 void setup() {
-   Serial.begin(9600);
+  Serial.begin(9600);
 
-   pinMode(IR_PIN_OUT, OUTPUT);
-   pinMode(TRIGGER_PIN_OUT, OUTPUT);
-   
-   // Set up the LCD's columns and rows
-   lcd.begin(16, 2);
+  pinMode(IR_PIN_OUT, OUTPUT);
+  pinMode(TRIGGER_PIN_OUT, OUTPUT);
 
-   printStringLnP(connectingInternet);
-   connect();
+  // Set up the LCD's columns and rows
+  lcd.begin(16, 2);
 
-   getSonosIP(sonosIP, livingRoomSonos);
+  printStringLnP(connectingInternet);
+  connect();
 
-   server.begin();
-   
-   printStringLnP(internetInitialized);
+  getSonosIP(sonosIP, livingRoomSonos);
+
+  server.begin();
+
+  printStringLnP(internetInitialized);
 #if WIFI
-   Serial.println(WiFi.localIP());
+  Serial.println(WiFi.localIP());
 #else
-   Serial.println(Internet.localIP());
+  Serial.println(Internet.localIP());
 #endif
 
 #if TIME
-   ntpClient.begin();
-   setSyncProvider(getTime);
+  ntpClient.begin();
+  setSyncProvider(getTime);
 #endif
 }
 
 void loop() {
-   // Try to connect if connection appears to be down; reboot if no bueno. 
-   if (!checkConnectionStatus(false) && !connect()) {
-      printStringLnP(rebooting);
-      reboot();
-   }
+  // Try to connect if connection appears to be down; reboot if no bueno.
+  if (!checkConnectionStatus(false) && !connect()) {
+    printStringLnP(rebooting);
+    reboot();
+  }
 
-   // Check inputs in order of precedence, skipping additional checks if any
-   // prior registered input.
-   bool gotInput = checkButtons();
+  // Check inputs in order of precedence, skipping additional checks if any
+  // prior registered input.
+  bool gotInput = checkButtons();
 
-   if (!gotInput) {
-      gotInput = checkServer();
-   }
+  if (!gotInput) {
+    gotInput = checkServer();
+  }
 
-   if (!gotInput) {
-      checkSource();
-   }
-
+  if (!gotInput) {
+    checkSource();
+  }
 
 #if TIME
-   if (millis() > checkTimeAfter) {
-      checkTimeAfter = millis() + CHECK_TIME_DELAY_MS;
-      
-      time_t t = myTZ.toLocal(now());
-      int hhmm = hour(t) * 100 + minute(t);
-      Serial.println(hhmm);
-      if (hhmm >= LCD_OFF_AFTER || hhmm < LCD_ON_AFTER) {
-         screenOff = true;
-      } else {
-         screenOff = false;
-      }
-   }
+  if (millis() > checkTimeAfter) {
+    checkTimeAfter = millis() + CHECK_TIME_DELAY_MS;
+
+    time_t t = myTZ.toLocal(now());
+    int hhmm = hour(t) * 100 + minute(t);
+    Serial.println(hhmm);
+    if (hhmm >= LCD_OFF_AFTER || hhmm < LCD_ON_AFTER) {
+      screenOff = true;
+    } else {
+      screenOff = false;
+    }
+  }
 #endif
 
-   if (screenOff) {
-      lcdHelper.screenOff();
-   } else {
-      lcdHelper.screenOn();
-      lcdHelper.print();
-   }
+  if (screenOff) {
+    lcdHelper.screenOff();
+  } else {
+    lcdHelper.screenOn();
+    lcdHelper.print();
+  }
 }
 
 bool checkConnectionStatus(bool forcePing) {
 #if WIFI
-   if (millis() > pingAfter) {
-      forcePing = true;
-      pingAfter = millis() + PING_DELAY_MS;
-   }
-   return WiFi.status() == WL_CONNECTED && (!forcePing || WiFi.ping(gatewayIP) >= 0);
-#else 
-   return Internet.connected();
+  if (millis() > pingAfter) {
+    forcePing = true;
+    pingAfter = millis() + PING_DELAY_MS;
+  }
+  return WiFi.status() == WL_CONNECTED &&
+         (!forcePing || WiFi.ping(gatewayIP) >= 0);
+#else
+  return Internet.connected();
 #endif
 }
 
 bool connect() {
-   printStringLnP(connecting);
-   lcdHelper.printNextP(connecting, empty, RED, 0);
-   lcdHelper.print();
-   
+  printStringLnP(connecting);
+  lcdHelper.printNextP(connecting, empty, RED, 0);
+  lcdHelper.print();
+
 #if WIFI
-   if (WiFi.status() == WL_NO_MODULE) {
-      printStringLnP(noWiFiModule);
-      return false;
-   }
+  if (WiFi.status() == WL_NO_MODULE) {
+    printStringLnP(noWiFiModule);
+    return false;
+  }
 
-   char *ssid = SECRET_SSID;
-   char *passkey = SECRET_PASSKEY;
-   String fv = WiFi.firmwareVersion();
-   String latestFv = WIFI_FIRMWARE_LATEST_VERSION;
+  char *ssid = SECRET_SSID;
+  char *passkey = SECRET_PASSKEY;
+  String fv = WiFi.firmwareVersion();
+  String latestFv = WIFI_FIRMWARE_LATEST_VERSION;
 
-   Serial.println(fv);
-   Serial.println(WIFI_FIRMWARE_LATEST_VERSION);
+  Serial.println(fv);
+  Serial.println(WIFI_FIRMWARE_LATEST_VERSION);
 
-   int status = WiFi.disconnect();
-   //WiFi.end();
+  int status = WiFi.disconnect();
+  // WiFi.end();
 
-   // Give this guy a long time to connect, auth seems to be
-   // slow with my AP
-   uint8_t tries = 0;
-   bool connected = false;
+  // Give this guy a long time to connect, auth seems to be
+  // slow with my AP
+  uint8_t tries = 0;
+  bool connected = false;
 
-   while (!connected && tries < WIFI_CONNECT_TRIES) {
-      status = WiFi.disconnect();
-      printStringLnP(connectAttempt);
-      status = WiFi.begin(ssid, passkey);
-      printStringP(connectReason);
-      Serial.println(WiFi.reasonCode());
-      printString("tries: ");
-      Serial.println(tries);
+  while (!connected && tries < WIFI_CONNECT_TRIES) {
+    status = WiFi.disconnect();
+    printStringLnP(connectAttempt);
+    status = WiFi.begin(ssid, passkey);
+    printStringP(connectReason);
+    Serial.println(WiFi.reasonCode());
+    printString("tries: ");
+    Serial.println(tries);
 
-      unsigned long tryUntil = millis() + WIFI_CONNECT_TIMEOUT_MS;
-      while (!(connected = checkConnectionStatus(true)) && millis() < tryUntil) {
-         delay(250);
-      }
+    unsigned long tryUntil = millis() + WIFI_CONNECT_TIMEOUT_MS;
+    while (!(connected = checkConnectionStatus(true)) && millis() < tryUntil) {
+      delay(250);
+    }
 
-      tries++;
-   }
+    tries++;
+  }
 
-   if (connected) {
-      Serial.println("connect ok");
-      WiFi.noLowPowerMode();
-      return true;
-   } else {
-      Serial.println("connection failed");
-   }
+  if (connected) {
+    Serial.println("connect ok");
+    WiFi.noLowPowerMode();
+    return true;
+  } else {
+    Serial.println("connection failed");
+  }
 
-   return false;
+  return false;
 #else
-   int* mac[6] = {};
-   readBytes(mac, MAC, 6);
+  int *mac[6] = {};
+  readBytes(mac, MAC, 6);
 
-   if (!Internet.begin(mac)) {
-      const IPAddress staticIP(192, 168, 10, 245);
-      // printStringLn("starting with MAC failed...");
-      Internet.begin(mac, staticIP);
-      return true;
-   }
+  if (!Internet.begin(mac)) {
+    const IPAddress staticIP(192, 168, 10, 245);
+    // printStringLn("starting with MAC failed...");
+    Internet.begin(mac, staticIP);
+    return true;
+  }
 #endif
 }
 
 bool checkButtons() {
-   bool gotButton = false;
-   char buttons = lcd.readButtons();
+  bool gotButton = false;
+  char buttons = lcd.readButtons();
 
-   if (buttons) {
-      gotButton = true;
-      char row1[10];
-      unsigned long displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
+  if (buttons) {
+    gotButton = true;
+    char row1[10];
+    unsigned long displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
 
-      if (buttons & BUTTON_UP) {
-         strcpy_P(row1, play);
-         lcdHelper.printNext(row1, "", VIOLET, displayUntil);
-         sonos.play(sonosIP);
+    if (buttons & BUTTON_UP) {
+      strcpy_P(row1, play);
+      lcdHelper.printNext(row1, "", VIOLET, displayUntil);
+      sonos.play(sonosIP);
+    }
+    if (buttons & BUTTON_DOWN) {
+      strcpy_P(row1, pause);
+      lcdHelper.printNext(row1, "", RED, displayUntil);
+      sonos.pause(sonosIP);
+    }
+    if (buttons & BUTTON_LEFT) {
+      strcpy_P(row1, previous);
+      lcdHelper.printNext(row1, "", YELLOW, displayUntil);
+      sonos.skip(sonosIP, 0); // back
+    }
+    if (buttons & BUTTON_RIGHT) {
+      strcpy_P(row1, next);
+      lcdHelper.printNext(row1, "", TEAL, displayUntil);
+      sonos.skip(sonosIP, 1); // forward
+    }
+    if (buttons & BUTTON_SELECT) {
+      if (intendedSource == SRC_PHONO) {
+        phonoOff();
+        amp.turnOffWithAntiFlap();
+      } else {
+        amp.turnOn();
+        phonoOn();
       }
-      if (buttons & BUTTON_DOWN) {
-         strcpy_P(row1, pause);
-         lcdHelper.printNext(row1, "", RED, displayUntil);
-         sonos.pause(sonosIP);
-      }
-      if (buttons & BUTTON_LEFT) {
-         strcpy_P(row1, previous);
-         lcdHelper.printNext(row1, "", YELLOW, displayUntil);
-         sonos.skip(sonosIP, 0); // back
-      }
-      if (buttons & BUTTON_RIGHT) {
-         strcpy_P(row1, next);
-         lcdHelper.printNext(row1, "", TEAL, displayUntil);
-         sonos.skip(sonosIP, 1); // forward
-      }
-      if (buttons & BUTTON_SELECT) {
-         if (intendedSource == SRC_PHONO) {
-            phonoOff();
-            amp.turnOffWithAntiFlap();
-         } else {
-            amp.turnOn();
-            phonoOn();
-         }
-      }
+    }
 
-      // Debounce button press (doc claims unnecessary, but testing proves
-      // otherwise)
-      delay(200);
-   }
+    // Debounce button press (doc claims unnecessary, but testing proves
+    // otherwise)
+    delay(200);
+  }
 
-   return gotButton;
+  return gotButton;
 }
 
 bool checkServer() {
-   bool gotCmd = false;
+  bool gotCmd = false;
 #if WIFI
-   WiFiClient client = server.available();
+  WiFiClient client = server.available();
 #else
-   InternetClient client = server.available();
+  InternetClient client = server.available();
 #endif
 
-   if (client) {
-      char get[strlen_P(httpGet) + 1];
-      strcpy_P(get, httpGet);
-      char uri[16] = "";
-      unsigned int index = 0; // used for method and URI indexing
+  if (client) {
+    char get[strlen_P(httpGet) + 1];
+    strcpy_P(get, httpGet);
+    char uri[16] = "";
+    unsigned int index = 0; // used for method and URI indexing
 
-      boolean collectMethod = true;
-      boolean collectUri = true;
-      boolean currentLineIsBlank = false;
+    boolean collectMethod = true;
+    boolean collectUri = true;
+    boolean currentLineIsBlank = false;
 
-      while (client.connected() && client.available()) {
-         char c = client.read();
-         if (c == '\n' && currentLineIsBlank) {
-            char req[strlen_P(httpRequest) + 1];
-            strcpy_P(req, httpRequest);
-            client.print(req);
-            client.println(uri);
-            break;
-         }
-
-         if (c == '\n') {
-            currentLineIsBlank = true;
-         } else if (c != '\r') {
-            currentLineIsBlank = false;
-
-            if (collectMethod) {
-               if (c == get[index]) {
-                  index++;
-                  if (index == strlen(get)) {
-                     collectMethod = false;
-                     index = 0;
-                  }
-               }
-            } else if (collectUri && index < 15) {
-               if (c == ' ') {
-                  uri[index] = '\0';
-                  collectUri = false;
-               } else {
-                  uri[index] = c;
-                  index++;
-               }
-            }
-         }
+    while (client.connected() && client.available()) {
+      char c = client.read();
+      if (c == '\n' && currentLineIsBlank) {
+        char req[strlen_P(httpRequest) + 1];
+        strcpy_P(req, httpRequest);
+        client.print(req);
+        client.println(uri);
+        break;
       }
 
-      if (strlen(uri) > 0) {
-         char row[LCD_ROW_STR_LENGTH];
-         unsigned long displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
+      if (c == '\n') {
+        currentLineIsBlank = true;
+      } else if (c != '\r') {
+        currentLineIsBlank = false;
 
-         if (strcmp_P(uri, muteUri) == 0) {
-            lcdHelper.printNext(strcpy_P(row, mute), "", GREEN, displayUntil);
-            amp.mute();
-         } else if (strcmp_P(uri, volupUri) >= 0) {
-            lcdHelper.printNext(strcpy_P(row, volumeUp), "", GREEN,
-                                displayUntil);
-            const uint8_t volSteps = getStepsFromUri(uri);
-            for (uint8_t i = 0; i < volSteps; i++) {
-               amp.volumeUp();
-               delay(20);
+        if (collectMethod) {
+          if (c == get[index]) {
+            index++;
+            if (index == strlen(get)) {
+              collectMethod = false;
+              index = 0;
             }
-         } else if (strcmp_P(uri, voldownUri) >= 0) {
-            lcdHelper.printNext(strcpy_P(row, volumeDown), "", GREEN,
-                                displayUntil);
-            const uint8_t volSteps = getStepsFromUri(uri);
-            for (uint8_t i = 0; i < volSteps; i++) {
-               amp.volumeDown();
-               delay(20);
-            }
-         } else if (strcmp_P(uri, balUri) == 0) {
-            lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN,
-                                displayUntil);
-            amp.turnOn();
-            balOn();
-         } else if (strcmp_P(uri, tunerUri) == 0) {
-            lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN,
-                                displayUntil);
-            amp.turnOn();
-            tunerOn();
-         } else if (strcmp_P(uri, phonoUri) == 0) {
-            lcdHelper.printNext(strcpy_P(row, phono), "", GREEN, displayUntil);
-            amp.turnOn();
-            phonoOn();
-         } else if (strcmp_P(uri, onnUri) == 0) {
-            lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN,
-                                displayUntil);
-            amp.turnOn();
-         } else if (strcmp_P(uri, offUri) == 0) {
-            lcdHelper.printNext(strcpy_P(row, powerOff), "", GREEN,
-                                displayUntil);
-            intendedSource = SRC_UNKNOWN;
-            amp.turnOff();
-         }
-
-         gotCmd = true;
+          }
+        } else if (collectUri && index < 15) {
+          if (c == ' ') {
+            uri[index] = '\0';
+            collectUri = false;
+          } else {
+            uri[index] = c;
+            index++;
+          }
+        }
       }
-   }
+    }
 
-   delay(1);
-   client.stop();
+    if (strlen(uri) > 0) {
+      char row[LCD_ROW_STR_LENGTH];
+      unsigned long displayUntil = millis() + BUTTON_PRESS_VIEW_DURATION_MS;
 
-   return gotCmd;
+      if (strcmp_P(uri, muteUri) == 0) {
+        lcdHelper.printNext(strcpy_P(row, mute), "", GREEN, displayUntil);
+        amp.mute();
+      } else if (strcmp_P(uri, volupUri) >= 0) {
+        lcdHelper.printNext(strcpy_P(row, volumeUp), "", GREEN, displayUntil);
+        const uint8_t volSteps = getStepsFromUri(uri);
+        for (uint8_t i = 0; i < volSteps; i++) {
+          amp.volumeUp();
+          delay(20);
+        }
+      } else if (strcmp_P(uri, voldownUri) >= 0) {
+        lcdHelper.printNext(strcpy_P(row, volumeDown), "", GREEN, displayUntil);
+        const uint8_t volSteps = getStepsFromUri(uri);
+        for (uint8_t i = 0; i < volSteps; i++) {
+          amp.volumeDown();
+          delay(20);
+        }
+      } else if (strcmp_P(uri, balUri) == 0) {
+        lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN, displayUntil);
+        amp.turnOn();
+        balOn();
+      } else if (strcmp_P(uri, tunerUri) == 0) {
+        lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN, displayUntil);
+        amp.turnOn();
+        tunerOn();
+      } else if (strcmp_P(uri, phonoUri) == 0) {
+        lcdHelper.printNext(strcpy_P(row, phono), "", GREEN, displayUntil);
+        amp.turnOn();
+        phonoOn();
+      } else if (strcmp_P(uri, onnUri) == 0) {
+        lcdHelper.printNext(strcpy_P(row, powerOn), "", GREEN, displayUntil);
+        amp.turnOn();
+      } else if (strcmp_P(uri, offUri) == 0) {
+        lcdHelper.printNext(strcpy_P(row, powerOff), "", GREEN, displayUntil);
+        intendedSource = SRC_UNKNOWN;
+        amp.turnOff();
+      }
+
+      gotCmd = true;
+    }
+  }
+
+  delay(1);
+  client.stop();
+
+  return gotCmd;
 }
 
 void checkSource() {
-   if (millis() < checkSourceAfter) {
-      return;
-   }
+  if (millis() < checkSourceAfter) {
+    return;
+  }
 
-   checkSourceAfter = millis() + SOURCE_STATUS_POLL_DELAY_MS;
+  checkSourceAfter = millis() + SOURCE_STATUS_POLL_DELAY_MS;
 
-   if (intendedSource == SRC_PHONO) {
-      amp.turnOn();
-      amp.phono();
-      lcdHelper.maybePrintNextP(phonoOverride1, phonoOn2, BLUE);
-   } else {
-      // Sonos state polling
-      byte playerState = sonos.getState(sonosIP);
-      char uri[20] = "";
-      char title[75] = "";
-      char artist[40] = "";
+  if (intendedSource == SRC_PHONO) {
+    amp.turnOn();
+    amp.phono();
+    lcdHelper.maybePrintNextP(phonoOverride1, phonoOn2, BLUE);
+  } else {
+    // Sonos state polling
+    byte playerState = sonos.getState(sonosIP);
+    char uri[20] = "";
+    char title[75] = "";
+    char artist[40] = "";
 
-      TrackInfo track =
-          sonos.getTrackInfo(sonosIP, uri, sizeof(uri), title, sizeof(title),
-                             artist, sizeof(artist));
+    TrackInfo track = sonos.getTrackInfo(sonosIP, uri, sizeof(uri), title,
+                                         sizeof(title), artist, sizeof(artist));
 
-      byte source = sonos.getSourceFromURI(track.uri);
-      char sonosRow1[LCD_ROW1_LENGTH];
-      char sonosRow2[LCD_ROW2_LENGTH];
-      int sonosColor;
+    byte source = sonos.getSourceFromURI(track.uri);
+    char sonosRow1[LCD_ROW1_LENGTH];
+    char sonosRow2[LCD_ROW2_LENGTH];
+    int sonosColor;
 
-      switch (playerState) {
-      case SONOS_STATE_PLAYING:
-         strcpy_P(sonosRow1, playing);
-         sonosColor = VIOLET;
-         amp.turnOnWithAntiFlap();
-         sonosInput();
-         break;
-      case SONOS_STATE_PAUSED:
-         strcpy_P(sonosRow1, paused);
-         sonosColor = YELLOW;
-         amp.turnOffWithAntiFlap();
-         break;
-      case SONOS_STATE_STOPPED:
-         strcpy_P(sonosRow1, stopped);
-         sonosColor = WHITE;
-         amp.turnOffWithAntiFlap();
-         break;
-      default:
-         printStringLn("sonos state unknown");
-         strcpy_P(sonosRow1, unknown);
-         sonosColor = TEAL;
-         break;
-      }
+    switch (playerState) {
+    case SONOS_STATE_PLAYING:
+      strcpy_P(sonosRow1, playing);
+      sonosColor = VIOLET;
+      amp.turnOnWithAntiFlap();
+      sonosInput();
+      break;
+    case SONOS_STATE_PAUSED:
+      strcpy_P(sonosRow1, paused);
+      sonosColor = YELLOW;
+      amp.turnOffWithAntiFlap();
+      break;
+    case SONOS_STATE_STOPPED:
+      strcpy_P(sonosRow1, stopped);
+      sonosColor = WHITE;
+      amp.turnOffWithAntiFlap();
+      break;
+    default:
+      printStringLn("sonos state unknown");
+      strcpy_P(sonosRow1, unknown);
+      sonosColor = TEAL;
+      break;
+    }
 
-      // If the sonos device's source is 'master', switch to the presumed master
-      // device.
-      if (source == SONOS_SOURCE_MASTER) {
-         IPAddress ip;
-         getSonosIP(ip, livingRoomSonos);
-         if (sonosIP == ip) {
-            getSonosIP(sonosIP, kitchenSonos);
-         } else {
-            getSonosIP(sonosIP, livingRoomSonos);
-         }
-      }
-
-      if (source != SONOS_SOURCE_LINEIN && playerState != SONOS_STATE_STOPPED) {
-         strcpy(sonosRow2, title);
-         if (strlen(artist) > 0 && LCD_ROW2_LENGTH - strlen(sonosRow2) >= 10) {
-            strcat_P(sonosRow2, by);
-            strncat(sonosRow2, artist,
-                    min(LCD_ROW2_LENGTH - strlen(sonosRow2), strlen(artist)));
-         }
+    // If the sonos device's source is 'master', switch to the presumed master
+    // device.
+    if (source == SONOS_SOURCE_MASTER) {
+      IPAddress ip;
+      getSonosIP(ip, livingRoomSonos);
+      if (sonosIP == ip) {
+        getSonosIP(sonosIP, kitchenSonos);
       } else {
-         sonosRow2[0] = '\0';
+        getSonosIP(sonosIP, livingRoomSonos);
       }
+    }
 
-      lcdHelper.maybePrintNext(sonosRow1, sonosRow2, sonosColor);
-   }
+    if (source != SONOS_SOURCE_LINEIN && playerState != SONOS_STATE_STOPPED) {
+      strcpy(sonosRow2, title);
+      if (strlen(artist) > 0 && LCD_ROW2_LENGTH - strlen(sonosRow2) >= 10) {
+        strcat_P(sonosRow2, by);
+        strncat(sonosRow2, artist,
+                min(LCD_ROW2_LENGTH - strlen(sonosRow2), strlen(artist)));
+      }
+    } else {
+      sonosRow2[0] = '\0';
+    }
+
+    lcdHelper.maybePrintNext(sonosRow1, sonosRow2, sonosColor);
+  }
 }
 
 uint8_t getStepsFromUri(char *uri) {
-   char steps[4] = "";
-   boolean foundSteps = false;
+  char steps[4] = "";
+  boolean foundSteps = false;
 
-   for (uint8_t i = 0; i < strlen(uri) && strlen(steps) < 4; i++) {
-      char c = uri[i];
-      if (foundSteps == true && isDigit(c)) {
-         steps[strlen(steps)] = c;
-         steps[strlen(steps) + 1] = '\0';
-      } else if (c == '/') {
-         foundSteps = true;
-      }
-   }
+  for (uint8_t i = 0; i < strlen(uri) && strlen(steps) < 4; i++) {
+    char c = uri[i];
+    if (foundSteps == true && isDigit(c)) {
+      steps[strlen(steps)] = c;
+      steps[strlen(steps) + 1] = '\0';
+    } else if (c == '/') {
+      foundSteps = true;
+    }
+  }
 
-   uint8_t volSteps = 5;
-   if (strlen(steps) > 0) {
-      volSteps = atoi(steps);
-   }
+  uint8_t volSteps = 5;
+  if (strlen(steps) > 0) {
+    volSteps = atoi(steps);
+  }
 
-   return volSteps;
+  return volSteps;
 }
 
 void sonosInput() {
-   if (strcmp_P(SONOS_INPUT, balUri) == 0) {
-      balOn();
-   } else if (strcmp_P(SONOS_INPUT, tunerUri) == 0) {
-      tunerOn();
-   }
+  if (strcmp_P(SONOS_INPUT, balUri) == 0) {
+    balOn();
+  } else if (strcmp_P(SONOS_INPUT, tunerUri) == 0) {
+    tunerOn();
+  }
 }
 
 void balOn() {
-   intendedSource = SRC_BAL;
-   amp.bal();
+  intendedSource = SRC_BAL;
+  amp.bal();
 }
 
 void tunerOn() {
-   intendedSource = SRC_TUNER;
-   amp.tuner();
+  intendedSource = SRC_TUNER;
+  amp.tuner();
 }
 
 void phonoOn() {
-   intendedSource = SRC_PHONO;
-   amp.phono();
-   lcdHelper.printNextP(phonoOverride1, phonoOn2, BLUE, 0);
+  intendedSource = SRC_PHONO;
+  amp.phono();
+  lcdHelper.printNextP(phonoOverride1, phonoOn2, BLUE, 0);
 }
 
 void phonoOff() {
-   intendedSource = SRC_UNKNOWN;
-   lcdHelper.printNextP(phonoOverride1, phonoOff2, TEAL, 0);
+  intendedSource = SRC_UNKNOWN;
+  lcdHelper.printNextP(phonoOverride1, phonoOff2, TEAL, 0);
 }
 
 #if TIME
-unsigned long getTime() {
-   return ntpClient.getTime();
+unsigned long getTime() { 
+  return ntpClient.getTime();
 }
 #endif
 
 void readBytes(byte *output, const byte *input, const int size) {
-   for (int i = 0; i < size; i++) {
-      output[i] = pgm_read_byte_near(input + i);
-   }
+  for (int i = 0; i < size; i++) {
+    output[i] = pgm_read_byte_near(input + i);
+  }
 }
 
 void readWords(int *output, const int *input, const int size) {
-   for (int i = 0; i < size; i++) {
-      output[i] = pgm_read_word_near(input + i);
-   }
+  for (int i = 0; i < size; i++) {
+    output[i] = pgm_read_word_near(input + i);
+  }
 }
 
 void printString(const char *str) {
-   const char *p = str;
-   while (*p) {
-      Serial.print(*p);
-      p++;
-   }
+  const char *p = str;
+  while (*p) {
+    Serial.print(*p);
+    p++;
+  }
 }
 
 void printStringLn(const char *str) {
-   printString(str);
-   Serial.print('\n');
+  printString(str);
+  Serial.print('\n');
 }
 
 void printStringP(const char *str) {
-   char c[strlen_P(str) + 1];
-   strcpy_P(c, str);
-   printString(c);
+  char c[strlen_P(str) + 1];
+  strcpy_P(c, str);
+  printString(c);
 }
 
 void printStringLnP(const char *str) {
-   printStringP(str);
-   Serial.print('\n');
+  printStringP(str);
+  Serial.print('\n');
 }
 
 void getSonosIP(IPAddress &ip, const char *hostP) {
-   char sonosHost[strlen_P(hostP) + 1];
-   strcpy_P(sonosHost, hostP);
+  char sonosHost[strlen_P(hostP) + 1];
+  strcpy_P(sonosHost, hostP);
 #if WIFI
-   WiFi.hostByName(sonosHost, ip);
+  WiFi.hostByName(sonosHost, ip);
 #else
-   Internet.hostByName(ip, sonosHost);
+  Internet.hostByName(ip, sonosHost);
 #endif
 }
 
-void connectError() {
-   printStringLnP(connError);
-}
+void connectError() { printStringLnP(connError); }
